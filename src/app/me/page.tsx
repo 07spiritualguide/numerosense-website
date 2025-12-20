@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardBody, Spinner, Tabs, Tab, Chip } from '@heroui/react';
+import { Card, CardBody, Spinner, Tabs, Tab, Chip, Button, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, ButtonGroup } from '@heroui/react';
 import { supabase } from '@/lib/supabase';
 import { getStudentSession, StudentSession } from '@/lib/auth';
+import { calculateMahadasha, expandTimeline, MahadashaEntry } from '@/lib/mahadasha';
 import StudentNavbar from '@/components/StudentNavbar';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface StudentProfile {
     full_name: string;
@@ -30,8 +33,12 @@ export default function MePage() {
     const [session, setSession] = useState<StudentSession | null>(null);
     const [profile, setProfile] = useState<StudentProfile | null>(null);
     const [basicInfo, setBasicInfo] = useState<BasicInfo | null>(null);
+    const [mahadashaTimeline, setMahadashaTimeline] = useState<MahadashaEntry[] | null>(null);
     const [loading, setLoading] = useState(true);
+    const [calculatingMahadasha, setCalculatingMahadasha] = useState(false);
     const [selectedTab, setSelectedTab] = useState('basic');
+
+    const currentYear = new Date().getFullYear();
 
     useEffect(() => {
         checkAuth();
@@ -74,7 +81,132 @@ export default function MePage() {
             setBasicInfo(info);
         }
 
+        // Fetch mahadasha data
+        const { data: mahadasha } = await supabase
+            .from('mahadasha')
+            .select('timeline')
+            .eq('student_id', studentSession.id)
+            .single();
+
+        if (mahadasha?.timeline) {
+            setMahadashaTimeline(mahadasha.timeline as MahadashaEntry[]);
+        }
+
         setLoading(false);
+    };
+
+    const handleCalculateMahadasha = async () => {
+        if (!profile || !basicInfo?.root_number || !session) return;
+
+        setCalculatingMahadasha(true);
+
+        try {
+            const birthYear = new Date(profile.date_of_birth).getFullYear();
+            const timeline = calculateMahadasha(birthYear, basicInfo.root_number, 100);
+            const expanded = expandTimeline(timeline, birthYear + 100);
+
+            // Check if record exists
+            const { data: existing } = await supabase
+                .from('mahadasha')
+                .select('id')
+                .eq('student_id', session.id)
+                .maybeSingle();
+
+            let error;
+            if (existing) {
+                // Update existing
+                const result = await supabase
+                    .from('mahadasha')
+                    .update({
+                        timeline: expanded,
+                        calculated_at: new Date().toISOString(),
+                    })
+                    .eq('student_id', session.id);
+                error = result.error;
+            } else {
+                // Insert new
+                const result = await supabase
+                    .from('mahadasha')
+                    .insert({
+                        student_id: session.id,
+                        timeline: expanded,
+                        calculated_at: new Date().toISOString(),
+                    });
+                error = result.error;
+            }
+
+            if (!error) {
+                setMahadashaTimeline(expanded);
+            } else {
+                console.error('Mahadasha save error:', error);
+            }
+
+        } catch (err) {
+            console.error('Error calculating Mahadasha:', err);
+        } finally {
+            setCalculatingMahadasha(false);
+        }
+    };
+
+    const handleDownloadPDF = () => {
+        if (!mahadashaTimeline || !profile) return;
+
+        const doc = new jsPDF();
+
+        // Title
+        doc.setFontSize(20);
+        doc.text('Mahadasha Timeline', 14, 20);
+
+        // Name and DOB
+        doc.setFontSize(12);
+        doc.text(`Name: ${profile.full_name}`, 14, 32);
+        doc.text(`Date of Birth: ${formatDate(profile.date_of_birth)}`, 14, 40);
+
+        // Table data
+        const tableData = mahadashaTimeline.map((entry) => [
+            entry.year.toString() + (entry.year === currentYear ? ' ✨' : ''),
+            entry.number.toString()
+        ]);
+
+        // Generate table
+        autoTable(doc, {
+            startY: 50,
+            head: [['Year', 'Mahadasha']],
+            body: tableData,
+            didParseCell: (data) => {
+                // Highlight current year row
+                const cellText = data.cell.raw?.toString() || '';
+                if (cellText.includes('✨')) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.textColor = [0, 112, 243];
+                }
+            }
+        });
+
+        doc.save(`mahadasha_${profile.full_name.replace(/\s+/g, '_')}.pdf`);
+    };
+
+    const handleDownloadCSV = () => {
+        if (!mahadashaTimeline || !profile) return;
+
+        // Create CSV content
+        let content = 'Year,Mahadasha,Current\n';
+
+        mahadashaTimeline.forEach((entry) => {
+            const isCurrent = entry.year === currentYear ? 'Yes' : 'No';
+            content += `${entry.year},${entry.number},${isCurrent}\n`;
+        });
+
+        // Create and download file
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mahadasha_${profile.full_name.replace(/\s+/g, '_')}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     if (loading) {
@@ -218,11 +350,88 @@ export default function MePage() {
                                 </CardBody>
                             </Card>
                         </Tab>
-                        <Tab key="dasha" title="Dasha">
+                        <Tab key="mahadasha" title="Mahadasha">
                             <Card className="mt-4">
                                 <CardBody className="p-6">
-                                    <h2 className="text-xl font-semibold mb-4">Dasha</h2>
-                                    <p className="text-default-500">Dasha content coming soon...</p>
+                                    <h2 className="text-xl font-semibold mb-4">Mahadasha</h2>
+
+                                    {!mahadashaTimeline ? (
+                                        // Show button if not calculated yet
+                                        <div className="text-center py-8">
+                                            <p className="text-default-500 mb-4">
+                                                Calculate your Mahadasha timeline based on your birth date
+                                            </p>
+                                            <Button
+                                                color="primary"
+                                                size="lg"
+                                                onPress={handleCalculateMahadasha}
+                                                isLoading={calculatingMahadasha}
+                                            >
+                                                See my Mahadasha
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        // Show timeline
+                                        <div>
+                                            {/* Name and DOB display */}
+                                            <div className="mb-4 p-4 bg-default-100 rounded-lg">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="text-sm text-default-500">Name</p>
+                                                        <p className="font-semibold">{profile?.full_name}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-default-500">Date of Birth</p>
+                                                        <p className="font-semibold">{profile?.date_of_birth ? formatDate(profile.date_of_birth) : '-'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="max-h-96 overflow-y-auto mb-4">
+                                                <Table aria-label="Mahadasha timeline" removeWrapper>
+                                                    <TableHeader>
+                                                        <TableColumn>YEAR</TableColumn>
+                                                        <TableColumn>MAHADASHA</TableColumn>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {mahadashaTimeline.map((entry, idx) => (
+                                                            <TableRow
+                                                                key={idx}
+                                                                className={entry.year === currentYear ? 'bg-primary-100' : ''}
+                                                            >
+                                                                <TableCell>
+                                                                    <span className={entry.year === currentYear ? 'font-bold text-primary' : ''}>
+                                                                        {entry.year}
+                                                                        {entry.year === currentYear && ' ✨'}
+                                                                    </span>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <span className={entry.year === currentYear ? 'font-bold text-primary' : ''}>
+                                                                        {entry.number}
+                                                                    </span>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                            <ButtonGroup>
+                                                <Button
+                                                    color="primary"
+                                                    onPress={handleDownloadPDF}
+                                                >
+                                                    Download PDF
+                                                </Button>
+                                                <Button
+                                                    color="secondary"
+                                                    variant="flat"
+                                                    onPress={handleDownloadCSV}
+                                                >
+                                                    Download CSV
+                                                </Button>
+                                            </ButtonGroup>
+                                        </div>
+                                    )}
                                 </CardBody>
                             </Card>
                         </Tab>
