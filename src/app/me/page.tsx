@@ -355,12 +355,12 @@ export default function MePage() {
     return (
         <div className="min-h-screen">
             <StudentNavbar />
-            <div className="p-4">
+            <div className="p-3 md:p-4">
                 <div className="max-w-4xl mx-auto">
                     {/* Header */}
-                    <div className="mb-6 mt-4">
-                        <h1 className="text-2xl font-bold">Welcome, {profile?.full_name}</h1>
-                        <p className="text-default-500">Your spiritual journey awaits</p>
+                    <div className="mb-4 md:mb-6 mt-2 md:mt-4">
+                        <h1 className="text-xl md:text-2xl font-bold truncate">Welcome, {profile?.full_name}</h1>
+                        <p className="text-default-500 text-sm md:text-base">Your spiritual journey awaits</p>
                     </div>
 
                     {/* Tabs */}
@@ -368,12 +368,17 @@ export default function MePage() {
                         selectedKey={selectedTab}
                         onSelectionChange={(key) => setSelectedTab(key as string)}
                         aria-label="Profile sections"
-                        className="mb-6"
+                        className="mb-4 md:mb-6"
+                        classNames={{
+                            tabList: "overflow-x-auto flex-nowrap scrollbar-hide",
+                            tab: "min-w-fit px-3 text-sm md:text-base whitespace-nowrap",
+                            base: "w-full"
+                        }}
                     >
                         <Tab key="basic" title="Basic Info">
-                            <Card className="mt-4">
-                                <CardBody className="p-6">
-                                    <h2 className="text-xl font-semibold mb-6">Basic Information</h2>
+                            <Card className="mt-3 md:mt-4">
+                                <CardBody className="p-4 md:p-6">
+                                    <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6">Basic Information</h2>
 
                                     {/* Numerology Numbers */}
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

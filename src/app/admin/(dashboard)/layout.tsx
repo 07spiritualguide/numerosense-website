@@ -15,10 +15,16 @@ export default function AdminDashboardLayout({
     const pathname = usePathname();
     const [loading, setLoading] = useState(true);
     const [adminEmail, setAdminEmail] = useState('');
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
         checkAuth();
     }, []);
+
+    // Close sidebar on route change (mobile)
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [pathname]);
 
     const checkAuth = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -62,9 +68,36 @@ export default function AdminDashboardLayout({
     ];
 
     return (
-        <div className="min-h-screen flex">
+        <div className="min-h-screen flex flex-col md:flex-row">
+            {/* Mobile Header */}
+            <header className="md:hidden flex items-center justify-between p-4 border-b border-divider">
+                <h1 className="text-lg font-bold">Admin Panel</h1>
+                <Button
+                    variant="flat"
+                    size="sm"
+                    onPress={() => setSidebarOpen(!sidebarOpen)}
+                >
+                    {sidebarOpen ? '✕' : '☰'}
+                </Button>
+            </header>
+
+            {/* Sidebar Overlay (mobile) */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
-            <aside className="w-64 border-r border-divider flex flex-col">
+            <aside className={`
+                fixed md:static inset-y-0 left-0 z-50
+                w-64 border-r border-divider flex flex-col
+                bg-background
+                transform transition-transform duration-200 ease-in-out
+                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+                md:translate-x-0
+            `}>
                 <div className="p-6 border-b border-divider">
                     <h1 className="text-xl font-bold">Admin Panel</h1>
                 </div>
@@ -76,8 +109,8 @@ export default function AdminDashboardLayout({
                                 <Link
                                     href={item.href}
                                     className={`block px-4 py-2 rounded-lg transition-colors ${pathname === item.href
-                                            ? 'bg-primary text-primary-foreground'
-                                            : 'hover:bg-default-100'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'hover:bg-default-100'
                                         }`}
                                 >
                                     {item.name}

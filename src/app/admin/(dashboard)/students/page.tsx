@@ -148,14 +148,14 @@ export default function ManageStudentsPage() {
     };
 
     return (
-        <div className="p-8">
+        <div className="p-4 md:p-8">
             <div className="max-w-6xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold mb-2">Manage Students</h1>
-                    <p className="text-default-500">Add new students and manage their access to the platform.</p>
+                <div className="mb-6 md:mb-8">
+                    <h1 className="text-2xl md:text-3xl font-bold mb-2">Manage Students</h1>
+                    <p className="text-default-500 text-sm md:text-base">Add new students and manage their access to the platform.</p>
                 </div>
 
-                <div className="grid lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                     {/* Add Student Form */}
                     <Card>
                         <CardHeader className="border-b border-divider p-6">
@@ -281,7 +281,7 @@ export default function ManageStudentsPage() {
                 </div>
 
                 {/* Students List */}
-                <Card className="mt-8">
+                <Card className="mt-6 md:mt-8">
                     <CardHeader className="border-b border-divider p-6">
                         <div className="flex items-center justify-between w-full">
                             <h2 className="text-xl font-semibold">All Students</h2>
@@ -300,21 +300,16 @@ export default function ManageStudentsPage() {
                                 <p>No students yet. Add your first student above.</p>
                             </div>
                         ) : (
-                            <Table aria-label="Students table">
-                                <TableHeader>
-                                    <TableColumn>NAME</TableColumn>
-                                    <TableColumn>PHONE</TableColumn>
-                                    <TableColumn>STATUS</TableColumn>
-                                    <TableColumn>CREATED</TableColumn>
-                                    <TableColumn>LAST LOGIN</TableColumn>
-                                    <TableColumn>ACTIONS</TableColumn>
-                                </TableHeader>
-                                <TableBody>
+                            <div className="overflow-x-auto">
+                                {/* Mobile Card View */}
+                                <div className="md:hidden space-y-4 p-4">
                                     {students.map((student) => (
-                                        <TableRow key={student.id}>
-                                            <TableCell className="font-medium">{student.name}</TableCell>
-                                            <TableCell className="font-mono">{student.phone}</TableCell>
-                                            <TableCell>
+                                        <div key={student.id} className="p-4 bg-default-50 rounded-lg space-y-2">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-medium">{student.name}</p>
+                                                    <p className="text-sm font-mono text-default-500">{student.phone}</p>
+                                                </div>
                                                 <Chip
                                                     size="sm"
                                                     variant="flat"
@@ -322,27 +317,70 @@ export default function ManageStudentsPage() {
                                                 >
                                                     {student.is_active ? 'Active' : 'Inactive'}
                                                 </Chip>
-                                            </TableCell>
-                                            <TableCell className="text-default-500">
-                                                {new Date(student.created_at).toLocaleDateString()}
-                                            </TableCell>
-                                            <TableCell className="text-default-500">
-                                                {student.last_login ? new Date(student.last_login).toLocaleDateString() : 'Never'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button
-                                                    size="sm"
-                                                    variant="flat"
-                                                    color={student.is_active ? 'danger' : 'success'}
-                                                    onPress={() => toggleStudentStatus(student)}
-                                                >
-                                                    {student.is_active ? 'Deactivate' : 'Activate'}
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs text-default-500">
+                                                <span>Created: {new Date(student.created_at).toLocaleDateString()}</span>
+                                                <span>Login: {student.last_login ? new Date(student.last_login).toLocaleDateString() : 'Never'}</span>
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color={student.is_active ? 'danger' : 'success'}
+                                                onPress={() => toggleStudentStatus(student)}
+                                                className="w-full"
+                                            >
+                                                {student.is_active ? 'Deactivate' : 'Activate'}
+                                            </Button>
+                                        </div>
                                     ))}
-                                </TableBody>
-                            </Table>
+                                </div>
+                                {/* Desktop Table View */}
+                                <div className="hidden md:block">
+                                    <Table aria-label="Students table">
+                                        <TableHeader>
+                                            <TableColumn>NAME</TableColumn>
+                                            <TableColumn>PHONE</TableColumn>
+                                            <TableColumn>STATUS</TableColumn>
+                                            <TableColumn>CREATED</TableColumn>
+                                            <TableColumn>LAST LOGIN</TableColumn>
+                                            <TableColumn>ACTIONS</TableColumn>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {students.map((student) => (
+                                                <TableRow key={student.id}>
+                                                    <TableCell className="font-medium">{student.name}</TableCell>
+                                                    <TableCell className="font-mono">{student.phone}</TableCell>
+                                                    <TableCell>
+                                                        <Chip
+                                                            size="sm"
+                                                            variant="flat"
+                                                            color={student.is_active ? 'success' : 'danger'}
+                                                        >
+                                                            {student.is_active ? 'Active' : 'Inactive'}
+                                                        </Chip>
+                                                    </TableCell>
+                                                    <TableCell className="text-default-500">
+                                                        {new Date(student.created_at).toLocaleDateString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-default-500">
+                                                        {student.last_login ? new Date(student.last_login).toLocaleDateString() : 'Never'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="flat"
+                                                            color={student.is_active ? 'danger' : 'success'}
+                                                            onPress={() => toggleStudentStatus(student)}
+                                                        >
+                                                            {student.is_active ? 'Deactivate' : 'Activate'}
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
                         )}
                     </CardBody>
                 </Card>
