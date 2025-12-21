@@ -8,6 +8,7 @@ import { getStudentSession, StudentSession } from '@/lib/auth';
 import { calculateMahadasha, MahadashaEntry, isCurrentMahadasha } from '@/lib/mahadasha';
 import { calculateAntardasha, AntardashaEntry, isCurrentAntardasha } from '@/lib/antardasha';
 import { calculatePratyantardasha, YearPratyantardasha, isCurrentPratyantardasha } from '@/lib/pratyantardasha';
+import { calculateDailyDasha, calculateAllHourlyDasha, formatDateForDisplay, isCurrentHour } from '@/lib/dailydasha';
 import StudentNavbar from '@/components/StudentNavbar';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -39,6 +40,7 @@ export default function MePage() {
     const [antardashaTimeline, setAntardashaTimeline] = useState<AntardashaEntry[] | null>(null);
     const [pratyantardashaTimeline, setPratyantardashaTimeline] = useState<YearPratyantardasha[] | null>(null);
     const [selectedPratyantarYear, setSelectedPratyantarYear] = useState<number>(new Date().getFullYear());
+    const [selectedDailyDate, setSelectedDailyDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(true);
     const [calculatingMahadasha, setCalculatingMahadasha] = useState(false);
     const [calculatingAntardasha, setCalculatingAntardasha] = useState(false);
@@ -928,9 +930,184 @@ export default function MePage() {
                         </Tab>
                         <Tab key="daily-dasha" title="Daily Dasha">
                             <Card className="mt-4">
-                                <CardBody className="p-6">
-                                    <h2 className="text-xl font-semibold mb-4">Daily Dasha</h2>
-                                    <p className="text-default-500">Daily Dasha content coming soon...</p>
+                                <CardBody className="p-4 md:p-6">
+                                    <h2 className="text-lg md:text-xl font-semibold mb-4">Daily Dasha</h2>
+
+                                    {!pratyantardashaTimeline ? (
+                                        <div className="text-center py-8">
+                                            <p className="text-default-500 mb-4">
+                                                Please calculate Pratyantardasha first
+                                            </p>
+                                            <Button
+                                                color="primary"
+                                                onPress={() => setSelectedTab('pratyantar-dasha')}
+                                            >
+                                                Go to Pratyantar Dasha
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p className="text-sm text-default-500 mb-4">Showing 60 days (20 past + 40 future)</p>
+                                            <div className="max-h-[500px] overflow-y-auto">
+                                                <Table aria-label="Daily Dasha" removeWrapper>
+                                                    <TableHeader>
+                                                        <TableColumn>DATE</TableColumn>
+                                                        <TableColumn>DAY</TableColumn>
+                                                        <TableColumn>DAILY DASHA</TableColumn>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {(() => {
+                                                            const today = new Date();
+                                                            const rows = [];
+
+                                                            for (let i = -20; i <= 40; i++) {
+                                                                const date = new Date(today);
+                                                                date.setDate(today.getDate() + i);
+
+                                                                const dailyResult = calculateDailyDasha(date, pratyantardashaTimeline);
+                                                                if (!dailyResult) continue;
+
+                                                                const isToday = i === 0;
+
+                                                                rows.push(
+                                                                    <TableRow
+                                                                        key={i}
+                                                                        className={isToday ? 'bg-primary-100' : ''}
+                                                                    >
+                                                                        <TableCell>
+                                                                            <span className={isToday ? 'font-bold text-primary' : ''}>
+                                                                                {formatDateForDisplay(date)}
+                                                                                {isToday && ' ✨'}
+                                                                            </span>
+                                                                        </TableCell>
+                                                                        <TableCell>
+                                                                            <span className={isToday ? 'font-bold text-primary' : ''}>
+                                                                                {dailyResult.dayName}
+                                                                            </span>
+                                                                        </TableCell>
+                                                                        <TableCell>
+                                                                            <span className={isToday ? 'font-bold text-primary' : ''}>
+                                                                                {dailyResult.dailyDasha}
+                                                                            </span>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                );
+                                                            }
+
+                                                            return rows;
+                                                        })()}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardBody>
+                            </Card>
+                        </Tab>
+                        <Tab key="hourly-dasha" title="Hourly Dasha">
+                            <Card className="mt-4">
+                                <CardBody className="p-4 md:p-6">
+                                    <h2 className="text-lg md:text-xl font-semibold mb-4">Hourly Dasha</h2>
+
+                                    {!pratyantardashaTimeline ? (
+                                        <div className="text-center py-8">
+                                            <p className="text-default-500 mb-4">
+                                                Please calculate Pratyantardasha first
+                                            </p>
+                                            <Button
+                                                color="primary"
+                                                onPress={() => setSelectedTab('pratyantar-dasha')}
+                                            >
+                                                Go to Pratyantar Dasha
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {/* Date Picker */}
+                                            <div className="mb-6">
+                                                <label className="text-sm text-default-500 block mb-2">Select Date</label>
+                                                <input
+                                                    type="date"
+                                                    className="w-full md:w-64 p-2 border border-default-300 rounded-lg bg-background"
+                                                    value={selectedDailyDate}
+                                                    onChange={(e) => setSelectedDailyDate(e.target.value)}
+                                                />
+                                            </div>
+
+                                            {(() => {
+                                                const date = new Date(selectedDailyDate);
+                                                const dailyResult = calculateDailyDasha(date, pratyantardashaTimeline);
+
+                                                if (!dailyResult) {
+                                                    return (
+                                                        <div className="text-center py-8">
+                                                            <p className="text-default-500">No Pratyantardasha data found for this date.</p>
+                                                            <p className="text-sm text-default-400 mt-2">Date may be outside calculated range.</p>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                const hourlyData = calculateAllHourlyDasha(dailyResult.dailyDasha);
+                                                const currentHour = new Date().getHours();
+                                                const isToday = selectedDailyDate === new Date().toISOString().split('T')[0];
+
+                                                return (
+                                                    <>
+                                                        {/* Daily Dasha Summary */}
+                                                        <div className="mb-4 p-4 bg-default-100 rounded-lg">
+                                                            <div className="grid grid-cols-3 gap-4 text-center">
+                                                                <div>
+                                                                    <p className="text-xs text-default-500">Date</p>
+                                                                    <p className="font-semibold text-sm">{formatDateForDisplay(date)}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs text-default-500">Day</p>
+                                                                    <p className="font-semibold">{dailyResult.dayName}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs text-default-500">Daily Dasha</p>
+                                                                    <p className="font-bold text-xl text-primary">{dailyResult.dailyDasha}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Hourly Dasha Table */}
+                                                        <div className="max-h-96 overflow-y-auto">
+                                                            <Table aria-label="Hourly Dasha" removeWrapper>
+                                                                <TableHeader>
+                                                                    <TableColumn>TIME</TableColumn>
+                                                                    <TableColumn>HOURLY DASHA</TableColumn>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {hourlyData.map((item, idx) => {
+                                                                        const isCurrent = isToday && currentHour === idx;
+                                                                        return (
+                                                                            <TableRow
+                                                                                key={idx}
+                                                                                className={isCurrent ? 'bg-primary-100' : ''}
+                                                                            >
+                                                                                <TableCell>
+                                                                                    <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                                        {item.hour}
+                                                                                        {isCurrent && ' ✨'}
+                                                                                    </span>
+                                                                                </TableCell>
+                                                                                <TableCell>
+                                                                                    <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                                        {item.hourlyDasha}
+                                                                                    </span>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        );
+                                                                    })}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
                                 </CardBody>
                             </Card>
                         </Tab>
