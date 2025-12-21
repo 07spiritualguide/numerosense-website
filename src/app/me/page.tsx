@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Card, CardBody, Spinner, Tabs, Tab, Chip, Button, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, ButtonGroup } from '@heroui/react';
 import { supabase } from '@/lib/supabase';
 import { getStudentSession, StudentSession } from '@/lib/auth';
-import { calculateMahadasha, expandTimeline, MahadashaEntry } from '@/lib/mahadasha';
-import { calculateAntardasha, AntardashaEntry } from '@/lib/antardasha';
+import { calculateMahadasha, MahadashaEntry, isCurrentMahadasha } from '@/lib/mahadasha';
+import { calculateAntardasha, AntardashaEntry, isCurrentAntardasha } from '@/lib/antardasha';
+import { calculatePratyantardasha, YearPratyantardasha, isCurrentPratyantardasha } from '@/lib/pratyantardasha';
 import StudentNavbar from '@/components/StudentNavbar';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -36,12 +37,13 @@ export default function MePage() {
     const [basicInfo, setBasicInfo] = useState<BasicInfo | null>(null);
     const [mahadashaTimeline, setMahadashaTimeline] = useState<MahadashaEntry[] | null>(null);
     const [antardashaTimeline, setAntardashaTimeline] = useState<AntardashaEntry[] | null>(null);
+    const [pratyantardashaTimeline, setPratyantardashaTimeline] = useState<YearPratyantardasha[] | null>(null);
+    const [selectedPratyantarYear, setSelectedPratyantarYear] = useState<number>(new Date().getFullYear());
     const [loading, setLoading] = useState(true);
     const [calculatingMahadasha, setCalculatingMahadasha] = useState(false);
     const [calculatingAntardasha, setCalculatingAntardasha] = useState(false);
+    const [calculatingPratyantardasha, setCalculatingPratyantardasha] = useState(false);
     const [selectedTab, setSelectedTab] = useState('basic');
-
-    const currentYear = new Date().getFullYear();
 
     useEffect(() => {
         checkAuth();
@@ -106,6 +108,17 @@ export default function MePage() {
             setAntardashaTimeline(antardasha.timeline as AntardashaEntry[]);
         }
 
+        // Fetch pratyantardasha data
+        const { data: pratyantardasha } = await supabase
+            .from('pratyantardasha')
+            .select('timeline')
+            .eq('student_id', studentSession.id)
+            .maybeSingle();
+
+        if (pratyantardasha?.timeline) {
+            setPratyantardashaTimeline(pratyantardasha.timeline as YearPratyantardasha[]);
+        }
+
         setLoading(false);
     };
 
@@ -115,9 +128,12 @@ export default function MePage() {
         setCalculatingMahadasha(true);
 
         try {
-            const birthYear = new Date(profile.date_of_birth).getFullYear();
-            const timeline = calculateMahadasha(birthYear, basicInfo.root_number, 100);
-            const expanded = expandTimeline(timeline, birthYear + 100);
+            const dob = new Date(profile.date_of_birth);
+            const birthDay = dob.getDate();
+            const birthMonth = dob.getMonth() + 1;
+            const birthYear = dob.getFullYear();
+
+            const timeline = calculateMahadasha(birthDay, birthMonth, birthYear, basicInfo.root_number, 100);
 
             // Check if record exists
             const { data: existing } = await supabase
@@ -128,29 +144,27 @@ export default function MePage() {
 
             let error;
             if (existing) {
-                // Update existing
                 const result = await supabase
                     .from('mahadasha')
                     .update({
-                        timeline: expanded,
+                        timeline: timeline,
                         calculated_at: new Date().toISOString(),
                     })
                     .eq('student_id', session.id);
                 error = result.error;
             } else {
-                // Insert new
                 const result = await supabase
                     .from('mahadasha')
                     .insert({
                         student_id: session.id,
-                        timeline: expanded,
+                        timeline: timeline,
                         calculated_at: new Date().toISOString(),
                     });
                 error = result.error;
             }
 
             if (!error) {
-                setMahadashaTimeline(expanded);
+                setMahadashaTimeline(timeline);
             } else {
                 console.error('Mahadasha save error:', error);
             }
@@ -167,28 +181,27 @@ export default function MePage() {
 
         const doc = new jsPDF();
 
-        // Title
         doc.setFontSize(20);
         doc.text('Mahadasha Timeline', 14, 20);
 
-        // Name and DOB
         doc.setFontSize(12);
         doc.text(`Name: ${profile.full_name}`, 14, 32);
         doc.text(`Date of Birth: ${formatDate(profile.date_of_birth)}`, 14, 40);
 
-        // Table data
-        const tableData = mahadashaTimeline.map((entry) => [
-            entry.year.toString() + (entry.year === currentYear ? ' ✨' : ''),
-            entry.number.toString()
-        ]);
+        const tableData = mahadashaTimeline.map((entry) => {
+            const isCurrent = isCurrentMahadasha(entry);
+            return [
+                entry.fromDate + (isCurrent ? ' ✨' : ''),
+                entry.toDate,
+                entry.number.toString()
+            ];
+        });
 
-        // Generate table
         autoTable(doc, {
             startY: 50,
-            head: [['Year', 'Mahadasha']],
+            head: [['From Date', 'To Date', 'Number']],
             body: tableData,
             didParseCell: (data) => {
-                // Highlight current year row
                 const cellText = data.cell.raw?.toString() || '';
                 if (cellText.includes('✨')) {
                     data.cell.styles.fontStyle = 'bold';
@@ -203,15 +216,13 @@ export default function MePage() {
     const handleDownloadCSV = () => {
         if (!mahadashaTimeline || !profile) return;
 
-        // Create CSV content
-        let content = 'Year,Mahadasha,Current\n';
+        let content = 'From Date,To Date,Number,Current\n';
 
         mahadashaTimeline.forEach((entry) => {
-            const isCurrent = entry.year === currentYear ? 'Yes' : 'No';
-            content += `${entry.year},${entry.number},${isCurrent}\n`;
+            const isCurrent = isCurrentMahadasha(entry) ? 'Yes' : 'No';
+            content += `${entry.fromDate},${entry.toDate},${entry.number},${isCurrent}\n`;
         });
 
-        // Create and download file
         const blob = new Blob([content], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -277,6 +288,57 @@ export default function MePage() {
         }
     };
 
+    const handleCalculatePratyantardasha = async () => {
+        if (!profile || !antardashaTimeline || !session) return;
+
+        setCalculatingPratyantardasha(true);
+
+        try {
+            const dob = new Date(profile.date_of_birth);
+            const birthDay = dob.getDate();
+
+            const timeline = calculatePratyantardasha(birthDay, antardashaTimeline as any);
+
+            // Check if record exists
+            const { data: existing } = await supabase
+                .from('pratyantardasha')
+                .select('id')
+                .eq('student_id', session.id)
+                .maybeSingle();
+
+            let error;
+            if (existing) {
+                const result = await supabase
+                    .from('pratyantardasha')
+                    .update({
+                        timeline: timeline,
+                        calculated_at: new Date().toISOString(),
+                    })
+                    .eq('student_id', session.id);
+                error = result.error;
+            } else {
+                const result = await supabase
+                    .from('pratyantardasha')
+                    .insert({
+                        student_id: session.id,
+                        timeline: timeline,
+                        calculated_at: new Date().toISOString(),
+                    });
+                error = result.error;
+            }
+
+            if (!error) {
+                setPratyantardashaTimeline(timeline);
+            } else {
+                console.error('Pratyantardasha save error:', error);
+            }
+        } catch (err) {
+            console.error('Error calculating Pratyantardasha:', err);
+        } finally {
+            setCalculatingPratyantardasha(false);
+        }
+    };
+
     const handleDownloadAntardashaPDF = () => {
         if (!antardashaTimeline || !profile) return;
 
@@ -289,15 +351,18 @@ export default function MePage() {
         doc.text(`Name: ${profile.full_name}`, 14, 32);
         doc.text(`Date of Birth: ${formatDate(profile.date_of_birth)}`, 14, 40);
 
-        const tableData = antardashaTimeline.map((entry) => [
-            entry.year.toString() + (entry.year === currentYear ? ' ✨' : ''),
-            entry.dayName,
-            entry.antardasha.toString()
-        ]);
+        const tableData = antardashaTimeline.map((entry) => {
+            const isCurrent = isCurrentAntardasha(entry);
+            return [
+                entry.fromDate + (isCurrent ? ' ✨' : ''),
+                entry.toDate,
+                entry.antardasha.toString()
+            ];
+        });
 
         autoTable(doc, {
             startY: 50,
-            head: [['Year', 'Day of Birthday', 'Antardasha']],
+            head: [['From Date', 'To Date', 'Number']],
             body: tableData,
             didParseCell: (data) => {
                 const cellText = data.cell.raw?.toString() || '';
@@ -314,11 +379,11 @@ export default function MePage() {
     const handleDownloadAntardashaCSV = () => {
         if (!antardashaTimeline || !profile) return;
 
-        let content = 'Year,Day of Birthday,Antardasha,Current\n';
+        let content = 'From Date,To Date,Number,Current\n';
 
         antardashaTimeline.forEach((entry) => {
-            const isCurrent = entry.year === currentYear ? 'Yes' : 'No';
-            content += `${entry.year},${entry.dayName},${entry.antardasha},${isCurrent}\n`;
+            const isCurrent = isCurrentAntardasha(entry) ? 'Yes' : 'No';
+            content += `${entry.fromDate},${entry.toDate},${entry.antardasha},${isCurrent}\n`;
         });
 
         const blob = new Blob([content], { type: 'text/csv' });
@@ -326,6 +391,70 @@ export default function MePage() {
         const a = document.createElement('a');
         a.href = url;
         a.download = `antardasha_${profile.full_name.replace(/\s+/g, '_')}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadPratyantardashaPDF = () => {
+        if (!pratyantardashaTimeline || !profile) return;
+
+        const doc = new jsPDF();
+        const yearData = pratyantardashaTimeline.find(y => y.year === selectedPratyantarYear);
+        if (!yearData) return;
+
+        doc.setFontSize(20);
+        doc.text(`Pratyantardasha Timeline - ${selectedPratyantarYear}`, 14, 20);
+
+        doc.setFontSize(12);
+        doc.text(`Name: ${profile.full_name}`, 14, 32);
+        doc.text(`Date of Birth: ${formatDate(profile.date_of_birth)}`, 14, 40);
+        doc.text(`Year Period: ${yearData.fromDate} to ${yearData.toDate}`, 14, 48);
+
+        const tableData = yearData.periods.map((period) => {
+            const isCurrent = isCurrentPratyantardasha(period);
+            return [
+                period.fromDate + (isCurrent ? ' ✨' : ''),
+                period.toDate,
+                period.pratyantardasha.toString()
+            ];
+        });
+
+        autoTable(doc, {
+            startY: 56,
+            head: [['From Date', 'To Date', 'Pratyantardasha']],
+            body: tableData,
+            didParseCell: (data) => {
+                const cellText = data.cell.raw?.toString() || '';
+                if (cellText.includes('✨')) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.textColor = [0, 112, 243];
+                }
+            }
+        });
+
+        doc.save(`pratyantardasha_${selectedPratyantarYear}_${profile.full_name.replace(/\s+/g, '_')}.pdf`);
+    };
+
+    const handleDownloadPratyantardashaCSV = () => {
+        if (!pratyantardashaTimeline || !profile) return;
+
+        const yearData = pratyantardashaTimeline.find(y => y.year === selectedPratyantarYear);
+        if (!yearData) return;
+
+        let content = 'From Date,To Date,Pratyantardasha,Current\n';
+
+        yearData.periods.forEach((period) => {
+            const isCurrent = isCurrentPratyantardasha(period) ? 'Yes' : 'No';
+            content += `${period.fromDate},${period.toDate},${period.pratyantardasha},${isCurrent}\n`;
+        });
+
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pratyantardasha_${selectedPratyantarYear}_${profile.full_name.replace(/\s+/g, '_')}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -518,28 +647,37 @@ export default function MePage() {
                                             <div className="max-h-96 overflow-y-auto mb-4">
                                                 <Table aria-label="Mahadasha timeline" removeWrapper>
                                                     <TableHeader>
-                                                        <TableColumn>YEAR</TableColumn>
+                                                        <TableColumn>FROM DATE</TableColumn>
+                                                        <TableColumn>TO DATE</TableColumn>
                                                         <TableColumn>MAHADASHA</TableColumn>
                                                     </TableHeader>
                                                     <TableBody>
-                                                        {mahadashaTimeline.map((entry, idx) => (
-                                                            <TableRow
-                                                                key={idx}
-                                                                className={entry.year === currentYear ? 'bg-primary-100' : ''}
-                                                            >
-                                                                <TableCell>
-                                                                    <span className={entry.year === currentYear ? 'font-bold text-primary' : ''}>
-                                                                        {entry.year}
-                                                                        {entry.year === currentYear && ' ✨'}
-                                                                    </span>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <span className={entry.year === currentYear ? 'font-bold text-primary' : ''}>
-                                                                        {entry.number}
-                                                                    </span>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
+                                                        {mahadashaTimeline.map((entry, idx) => {
+                                                            const isCurrent = isCurrentMahadasha(entry);
+                                                            return (
+                                                                <TableRow
+                                                                    key={idx}
+                                                                    className={isCurrent ? 'bg-primary-100' : ''}
+                                                                >
+                                                                    <TableCell>
+                                                                        <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                            {entry.fromDate}
+                                                                            {isCurrent && ' ✨'}
+                                                                        </span>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                            {entry.toDate}
+                                                                        </span>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                            {entry.number}
+                                                                        </span>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )
+                                                        })}
                                                     </TableBody>
                                                 </Table>
                                             </div>
@@ -601,34 +739,37 @@ export default function MePage() {
                                             <div className="max-h-96 overflow-y-auto mb-4">
                                                 <Table aria-label="Antardasha timeline" removeWrapper>
                                                     <TableHeader>
-                                                        <TableColumn>YEAR</TableColumn>
-                                                        <TableColumn>DAY OF BIRTHDAY</TableColumn>
+                                                        <TableColumn>FROM DATE</TableColumn>
+                                                        <TableColumn>TO DATE</TableColumn>
                                                         <TableColumn>ANTARDASHA</TableColumn>
                                                     </TableHeader>
                                                     <TableBody>
-                                                        {antardashaTimeline.map((entry, idx) => (
-                                                            <TableRow
-                                                                key={idx}
-                                                                className={entry.year === currentYear ? 'bg-primary-100' : ''}
-                                                            >
-                                                                <TableCell>
-                                                                    <span className={entry.year === currentYear ? 'font-bold text-primary' : ''}>
-                                                                        {entry.year}
-                                                                        {entry.year === currentYear && ' ✨'}
-                                                                    </span>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <span className={entry.year === currentYear ? 'font-bold text-primary' : ''}>
-                                                                        {entry.dayName}
-                                                                    </span>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <span className={entry.year === currentYear ? 'font-bold text-primary' : ''}>
-                                                                        {entry.antardasha}
-                                                                    </span>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
+                                                        {antardashaTimeline.map((entry, idx) => {
+                                                            const isCurrent = isCurrentAntardasha(entry);
+                                                            return (
+                                                                <TableRow
+                                                                    key={idx}
+                                                                    className={isCurrent ? 'bg-primary-100' : ''}
+                                                                >
+                                                                    <TableCell>
+                                                                        <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                            {entry.fromDate}
+                                                                            {isCurrent && ' ✨'}
+                                                                        </span>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                            {entry.toDate}
+                                                                        </span>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                            {entry.antardasha}
+                                                                        </span>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )
+                                                        })}
                                                     </TableBody>
                                                 </Table>
                                             </div>
@@ -654,9 +795,134 @@ export default function MePage() {
                         </Tab>
                         <Tab key="pratyantar-dasha" title="Pratyantar Dasha">
                             <Card className="mt-4">
-                                <CardBody className="p-6">
-                                    <h2 className="text-xl font-semibold mb-4">Pratyantar Dasha</h2>
-                                    <p className="text-default-500">Pratyantar Dasha content coming soon...</p>
+                                <CardBody className="p-4 md:p-6">
+                                    <h2 className="text-lg md:text-xl font-semibold mb-4">Pratyantar Dasha</h2>
+
+                                    {!antardashaTimeline ? (
+                                        <div className="text-center py-8">
+                                            <p className="text-default-500 mb-4">
+                                                Please calculate Antardasha first
+                                            </p>
+                                            <Button
+                                                color="primary"
+                                                onPress={() => setSelectedTab('antar-dasha')}
+                                            >
+                                                Go to Antar Dasha
+                                            </Button>
+                                        </div>
+                                    ) : !pratyantardashaTimeline ? (
+                                        <div className="text-center py-8">
+                                            <p className="text-default-500 mb-4">
+                                                Calculate your Pratyantardasha sub-periods
+                                            </p>
+                                            <Button
+                                                color="primary"
+                                                size="lg"
+                                                onPress={handleCalculatePratyantardasha}
+                                                isLoading={calculatingPratyantardasha}
+                                            >
+                                                See my Pratyantardasha
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {/* Name and DOB display */}
+                                            <div className="mb-4 p-4 bg-default-100 rounded-lg">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="text-sm text-default-500">Name</p>
+                                                        <p className="font-semibold">{profile?.full_name}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-default-500">Date of Birth</p>
+                                                        <p className="font-semibold">{profile?.date_of_birth ? formatDate(profile.date_of_birth) : '-'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Year selector */}
+                                            <div className="mb-4">
+                                                <label className="text-sm text-default-500 block mb-2">Select Year</label>
+                                                <select
+                                                    className="w-full md:w-48 p-2 border border-default-300 rounded-lg bg-background"
+                                                    value={selectedPratyantarYear}
+                                                    onChange={(e) => setSelectedPratyantarYear(parseInt(e.target.value))}
+                                                >
+                                                    {pratyantardashaTimeline.map((yearData) => (
+                                                        <option key={yearData.year} value={yearData.year}>
+                                                            {yearData.year} {yearData.year === new Date().getFullYear() ? '(Current)' : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {/* Periods table */}
+                                            {(() => {
+                                                const yearData = pratyantardashaTimeline.find(y => y.year === selectedPratyantarYear);
+                                                if (!yearData) return <p className="text-default-500">No data for selected year</p>;
+
+                                                return (
+                                                    <>
+                                                        <p className="text-sm text-default-500 mb-2">
+                                                            Year: {yearData.fromDate} to {yearData.toDate}
+                                                        </p>
+                                                        <div className="max-h-96 overflow-y-auto mb-4">
+                                                            <Table aria-label="Pratyantardasha timeline" removeWrapper>
+                                                                <TableHeader>
+                                                                    <TableColumn>FROM DATE</TableColumn>
+                                                                    <TableColumn>TO DATE</TableColumn>
+                                                                    <TableColumn>PRATYANTARDASHA</TableColumn>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {yearData.periods.map((period, idx) => {
+                                                                        const isCurrent = isCurrentPratyantardasha(period);
+                                                                        return (
+                                                                            <TableRow
+                                                                                key={idx}
+                                                                                className={isCurrent ? 'bg-primary-100' : ''}
+                                                                            >
+                                                                                <TableCell>
+                                                                                    <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                                        {period.fromDate}
+                                                                                        {isCurrent && ' ✨'}
+                                                                                    </span>
+                                                                                </TableCell>
+                                                                                <TableCell>
+                                                                                    <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                                        {period.toDate}
+                                                                                    </span>
+                                                                                </TableCell>
+                                                                                <TableCell>
+                                                                                    <span className={isCurrent ? 'font-bold text-primary' : ''}>
+                                                                                        {period.pratyantardasha}
+                                                                                    </span>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        );
+                                                                    })}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                        <ButtonGroup>
+                                                            <Button
+                                                                color="primary"
+                                                                onPress={handleDownloadPratyantardashaPDF}
+                                                            >
+                                                                Download PDF
+                                                            </Button>
+                                                            <Button
+                                                                color="secondary"
+                                                                variant="flat"
+                                                                onPress={handleDownloadPratyantardashaCSV}
+                                                            >
+                                                                Download CSV
+                                                            </Button>
+                                                        </ButtonGroup>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
                                 </CardBody>
                             </Card>
                         </Tab>
