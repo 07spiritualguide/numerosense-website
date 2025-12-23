@@ -29,6 +29,11 @@ interface BasicInfo {
     lucky_direction: string | null;
     positive_traits: string[] | null;
     negative_traits: string[] | null;
+    lord: string | null;
+    lucky_dates: string[] | null;
+    favourable_profession: string[] | null;
+    favorable_days: string[] | null;
+    favorable_alphabets: string[] | null;
 }
 
 export default function MePage() {
@@ -558,6 +563,10 @@ export default function MePage() {
                                             <p className="text-lg">{profile?.gender ? capitalizeFirst(profile.gender) : '-'}</p>
                                         </div>
                                         <div>
+                                            <p className="text-sm text-default-500">Lord</p>
+                                            <p className="text-lg">{basicInfo?.lord ?? <span className="text-default-400">Coming soon</span>}</p>
+                                        </div>
+                                        <div>
                                             <p className="text-sm text-default-500">Lucky Number</p>
                                             <p className="text-lg">{basicInfo?.lucky_number ?? <span className="text-default-400">Coming soon</span>}</p>
                                         </div>
@@ -572,6 +581,66 @@ export default function MePage() {
                                         <div>
                                             <p className="text-sm text-default-500">Lucky Direction</p>
                                             <p className="text-lg">{basicInfo?.lucky_direction ?? <span className="text-default-400">Coming soon</span>}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* New Fields Section */}
+                                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <p className="text-sm text-default-500 mb-2">Lucky Dates</p>
+                                            {basicInfo?.lucky_dates ? (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {basicInfo.lucky_dates.map((date, idx) => (
+                                                        <Chip key={idx} color="primary" variant="flat" size="sm">
+                                                            {date}
+                                                        </Chip>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-default-400">Coming soon</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-default-500 mb-2">Favorable Days</p>
+                                            {basicInfo?.favorable_days ? (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {basicInfo.favorable_days.map((day, idx) => (
+                                                        <Chip key={idx} color="secondary" variant="flat" size="sm">
+                                                            {day}
+                                                        </Chip>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-default-400">Coming soon</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-default-500 mb-2">Favorable Alphabets</p>
+                                            {basicInfo?.favorable_alphabets ? (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {basicInfo.favorable_alphabets.map((letter, idx) => (
+                                                        <Chip key={idx} color="warning" variant="flat" size="sm">
+                                                            {letter}
+                                                        </Chip>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-default-400">Coming soon</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-default-500 mb-2">Favourable Profession</p>
+                                            {basicInfo?.favourable_profession ? (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {basicInfo.favourable_profession.map((prof, idx) => (
+                                                        <Chip key={idx} color="default" variant="flat" size="sm">
+                                                            {prof}
+                                                        </Chip>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-default-400">Coming soon</p>
+                                            )}
                                         </div>
                                     </div>
 

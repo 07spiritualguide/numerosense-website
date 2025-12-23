@@ -6,6 +6,7 @@ import { Button, Input, Card, CardBody, CardHeader, Select, SelectItem, Spinner 
 import { supabase } from '@/lib/supabase';
 import { getStudentSession, setStudentSession } from '@/lib/auth';
 import { calculateNumerology } from '@/lib/numerology';
+import { getNumerologyDataForDestiny } from '@/lib/numerologyData';
 import StudentNavbar from '@/components/StudentNavbar';
 
 export default function DetailsPage() {
@@ -83,6 +84,25 @@ export default function DetailsPage() {
             // Calculate numerology from DOB
             const dob = new Date(dateOfBirth);
             const numerology = calculateNumerology(dob);
+            const destinyData = getNumerologyDataForDestiny(numerology.destinyNumber);
+
+            // Prepare full basic_info data
+            const basicInfoData = {
+                root_number: numerology.rootNumber,
+                supportive_numbers: numerology.supportiveNumbers.map(String),
+                destiny_number: numerology.destinyNumber,
+                lord: destinyData?.lord || null,
+                zodiac_sign: destinyData?.zodiac_sign || null,
+                positive_traits: destinyData?.positive_traits || null,
+                negative_traits: destinyData?.negative_traits || null,
+                lucky_dates: destinyData?.lucky_dates || null,
+                favorable_days: destinyData?.favorable_days || null,
+                lucky_color: destinyData?.lucky_color || null,
+                lucky_direction: destinyData?.lucky_direction || null,
+                favorable_alphabets: destinyData?.favorable_alphabets || null,
+                favourable_profession: destinyData?.favourable_profession || null,
+                updated_at: new Date().toISOString(),
+            };
 
             // Check if basic_info already exists for this student
             const { data: existingInfo } = await supabase
@@ -95,12 +115,7 @@ export default function DetailsPage() {
                 // Update existing record
                 await supabase
                     .from('basic_info')
-                    .update({
-                        root_number: numerology.rootNumber,
-                        supportive_numbers: numerology.supportiveNumbers.map(String),
-                        destiny_number: numerology.destinyNumber,
-                        updated_at: new Date().toISOString(),
-                    })
+                    .update(basicInfoData)
                     .eq('student_id', session.id);
             } else {
                 // Insert new record
@@ -108,9 +123,7 @@ export default function DetailsPage() {
                     .from('basic_info')
                     .insert({
                         student_id: session.id,
-                        root_number: numerology.rootNumber,
-                        supportive_numbers: numerology.supportiveNumbers.map(String),
-                        destiny_number: numerology.destinyNumber,
+                        ...basicInfoData,
                     });
             }
 
