@@ -9,6 +9,18 @@ import { calculateMahadasha, MahadashaEntry, isCurrentMahadasha } from '@/lib/ma
 import { calculateAntardasha, AntardashaEntry, isCurrentAntardasha } from '@/lib/antardasha';
 import { calculatePratyantardasha, YearPratyantardasha, isCurrentPratyantardasha } from '@/lib/pratyantardasha';
 import { calculateDailyDasha, calculateAllHourlyDasha, formatDateForDisplay, isCurrentHour } from '@/lib/dailydasha';
+import {
+    calculateNatalGrid,
+    calculateBasicGrid,
+    calculateDestinyGrid,
+    calculateMahadashaGrid,
+    calculatePersonalYearGrid,
+    calculateMonthlyGrid,
+    MONTH_NAMES,
+    DigitSource
+} from '@/lib/loshu-grid';
+import LoShuGridComponent from '@/components/grids/LoShuGrid';
+import GridLegend from '@/components/grids/GridLegend';
 import StudentNavbar from '@/components/StudentNavbar';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -51,6 +63,8 @@ export default function MePage() {
     const [calculatingAntardasha, setCalculatingAntardasha] = useState(false);
     const [calculatingPratyantardasha, setCalculatingPratyantardasha] = useState(false);
     const [selectedTab, setSelectedTab] = useState('basic');
+    const [selectedGridTab, setSelectedGridTab] = useState('natal');
+    const [selectedMonthlyYear, setSelectedMonthlyYear] = useState<number>(new Date().getFullYear());
 
     useEffect(() => {
         checkAuth();
@@ -1330,6 +1344,244 @@ export default function MePage() {
                                                     </>
                                                 );
                                             })()}
+                                        </div>
+                                    )}
+                                </CardBody>
+                            </Card>
+                        </Tab>
+                        <Tab key="grids" title="Grids">
+                            <Card className="mt-3 md:mt-4">
+                                <CardBody className="p-4 md:p-6">
+                                    <h2 className="text-lg md:text-xl font-semibold mb-4">Grids</h2>
+
+                                    {!profile || !basicInfo ? (
+                                        <div className="text-center py-8">
+                                            <p className="text-default-500">
+                                                Profile data not available
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {/* Grid Sub-Tabs */}
+                                            <Tabs
+                                                selectedKey={selectedGridTab}
+                                                onSelectionChange={(key) => setSelectedGridTab(key as string)}
+                                                aria-label="Grid types"
+                                                className="mb-4"
+                                                size="sm"
+                                                classNames={{
+                                                    tabList: "overflow-x-auto flex-nowrap scrollbar-hide",
+                                                    tab: "min-w-fit px-2 text-xs md:text-sm whitespace-nowrap"
+                                                }}
+                                            >
+                                                {/* NATAL GRID */}
+                                                <Tab key="natal" title="Natal">
+                                                    <div className="mt-4">
+                                                        <GridLegend sources={['natal'] as DigitSource[]} />
+                                                        <div className="mt-4 flex justify-center">
+                                                            <LoShuGridComponent
+                                                                grid={calculateNatalGrid(profile.date_of_birth)}
+                                                                title="Natal Grid"
+                                                            />
+                                                        </div>
+                                                        <p className="text-center text-sm text-default-500 mt-4">
+                                                            Based on birth date digits only
+                                                        </p>
+                                                    </div>
+                                                </Tab>
+
+                                                {/* BASIC GRID */}
+                                                <Tab key="basic-grid" title="Basic">
+                                                    <div className="mt-4">
+                                                        <GridLegend sources={['natal', 'root'] as DigitSource[]} />
+                                                        <div className="mt-4 flex justify-center">
+                                                            <LoShuGridComponent
+                                                                grid={calculateBasicGrid(
+                                                                    profile.date_of_birth,
+                                                                    basicInfo.root_number || 1
+                                                                )}
+                                                                title="Basic Grid"
+                                                            />
+                                                        </div>
+                                                        <p className="text-center text-sm text-default-500 mt-4">
+                                                            Natal + Root Number (if not already present)
+                                                        </p>
+                                                    </div>
+                                                </Tab>
+
+                                                {/* DESTINY GRID */}
+                                                <Tab key="destiny-grid" title="Destiny">
+                                                    <div className="mt-4">
+                                                        <GridLegend sources={['natal', 'root', 'destiny'] as DigitSource[]} />
+                                                        <div className="mt-4 flex justify-center">
+                                                            <LoShuGridComponent
+                                                                grid={calculateDestinyGrid(
+                                                                    profile.date_of_birth,
+                                                                    basicInfo.root_number || 1,
+                                                                    basicInfo.destiny_number || 1
+                                                                )}
+                                                                title="Destiny Grid"
+                                                            />
+                                                        </div>
+                                                        <p className="text-center text-sm text-default-500 mt-4">
+                                                            Basic + Destiny Number
+                                                        </p>
+                                                    </div>
+                                                </Tab>
+
+                                                {/* MAHADASHA GRID */}
+                                                <Tab key="mahadasha-grid" title="Mahadasha">
+                                                    <div className="mt-4">
+                                                        {!mahadashaTimeline ? (
+                                                            <div className="text-center py-4">
+                                                                <p className="text-default-500 mb-4">
+                                                                    Please calculate Mahadasha first
+                                                                </p>
+                                                                <Button
+                                                                    color="primary"
+                                                                    size="sm"
+                                                                    onPress={() => setSelectedTab('mahadasha')}
+                                                                >
+                                                                    Go to Mahadasha
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <GridLegend sources={['natal', 'root', 'destiny', 'mahadasha'] as DigitSource[]} />
+                                                                <div className="mt-4 flex justify-center">
+                                                                    <LoShuGridComponent
+                                                                        grid={calculateMahadashaGrid(
+                                                                            profile.date_of_birth,
+                                                                            basicInfo.root_number || 1,
+                                                                            basicInfo.destiny_number || 1,
+                                                                            mahadashaTimeline
+                                                                        )}
+                                                                        title="Current Mahadasha Grid"
+                                                                    />
+                                                                </div>
+                                                                <p className="text-center text-sm text-default-500 mt-4">
+                                                                    Destiny + Current Mahadasha Number
+                                                                </p>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </Tab>
+
+                                                {/* PERSONAL YEAR GRIDS */}
+                                                <Tab key="personal-year" title="Personal Year">
+                                                    <div className="mt-4">
+                                                        {!mahadashaTimeline || !antardashaTimeline ? (
+                                                            <div className="text-center py-4">
+                                                                <p className="text-default-500 mb-4">
+                                                                    Please calculate Mahadasha and Antardasha first
+                                                                </p>
+                                                                <Button
+                                                                    color="primary"
+                                                                    size="sm"
+                                                                    onPress={() => setSelectedTab('mahadasha')}
+                                                                >
+                                                                    Go to Mahadasha
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <GridLegend
+                                                                    sources={['natal', 'root', 'destiny', 'mahadasha', 'antardasha'] as DigitSource[]}
+                                                                    compact
+                                                                />
+                                                                <p className="text-sm text-default-500 mt-2 mb-4">
+                                                                    16 years from current year
+                                                                </p>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                                    {Array.from({ length: 16 }, (_, i) => {
+                                                                        const year = new Date().getFullYear() + i;
+                                                                        return (
+                                                                            <div key={year} className="flex flex-col items-center">
+                                                                                <LoShuGridComponent
+                                                                                    grid={calculatePersonalYearGrid(
+                                                                                        profile.date_of_birth,
+                                                                                        basicInfo.root_number || 1,
+                                                                                        basicInfo.destiny_number || 1,
+                                                                                        year,
+                                                                                        mahadashaTimeline,
+                                                                                        antardashaTimeline
+                                                                                    )}
+                                                                                    title={year.toString()}
+                                                                                    compact
+                                                                                />
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </Tab>
+
+                                                {/* MONTHLY GRIDS */}
+                                                <Tab key="monthly" title="Monthly">
+                                                    <div className="mt-4">
+                                                        {!mahadashaTimeline || !antardashaTimeline || !pratyantardashaTimeline ? (
+                                                            <div className="text-center py-4">
+                                                                <p className="text-default-500 mb-4">
+                                                                    Please calculate all Dasha timelines first
+                                                                </p>
+                                                                <Button
+                                                                    color="primary"
+                                                                    size="sm"
+                                                                    onPress={() => setSelectedTab('mahadasha')}
+                                                                >
+                                                                    Go to Mahadasha
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div className="flex flex-wrap items-center gap-4 mb-4">
+                                                                    <GridLegend
+                                                                        sources={['natal', 'root', 'destiny', 'mahadasha', 'antardasha', 'pratyantardasha'] as DigitSource[]}
+                                                                        compact
+                                                                    />
+                                                                </div>
+                                                                <div className="mb-4">
+                                                                    <label className="text-sm text-default-500 block mb-2">Select Year</label>
+                                                                    <select
+                                                                        className="w-full md:w-48 p-2 border border-default-300 rounded-lg bg-background"
+                                                                        value={selectedMonthlyYear}
+                                                                        onChange={(e) => setSelectedMonthlyYear(parseInt(e.target.value))}
+                                                                    >
+                                                                        {Array.from({ length: 20 }, (_, i) => {
+                                                                            const year = new Date().getFullYear() - 5 + i;
+                                                                            return (
+                                                                                <option key={year} value={year}>{year}</option>
+                                                                            );
+                                                                        })}
+                                                                    </select>
+                                                                </div>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                                                    {MONTH_NAMES.map((monthName, monthIndex) => (
+                                                                        <div key={monthIndex} className="flex flex-col items-center">
+                                                                            <LoShuGridComponent
+                                                                                grid={calculateMonthlyGrid(
+                                                                                    profile.date_of_birth,
+                                                                                    basicInfo.root_number || 1,
+                                                                                    basicInfo.destiny_number || 1,
+                                                                                    selectedMonthlyYear,
+                                                                                    monthIndex,
+                                                                                    mahadashaTimeline,
+                                                                                    antardashaTimeline,
+                                                                                    pratyantardashaTimeline
+                                                                                )}
+                                                                                title={monthName}
+                                                                                compact
+                                                                            />
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </Tab>
+                                            </Tabs>
                                         </div>
                                     )}
                                 </CardBody>
