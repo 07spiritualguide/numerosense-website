@@ -19,7 +19,7 @@ export default function StudentNavbar({ showLogout = true }: StudentNavbarProps)
     return (
         <Navbar maxWidth="xl" isBordered>
             <NavbarBrand>
-                <p className="font-bold text-inherit text-lg">07SpiritualGuide</p>
+                <p className="font-bold text-inherit text-lg">Numerosense</p>
             </NavbarBrand>
             {showLogout && (
                 <NavbarContent justify="end">
