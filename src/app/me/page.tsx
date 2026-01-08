@@ -71,9 +71,43 @@ export default function MePage() {
     const [selectedMonthlyYear, setSelectedMonthlyYear] = useState<number>(new Date().getFullYear());
     const [selectedPersonalYearStart, setSelectedPersonalYearStart] = useState<number>(new Date().getFullYear());
 
+    // Destiny number to theme color mapping
+    const DESTINY_THEME: Record<number, { bg: string; card: string; accent: string; primary: string; tabList: string }> = {
+        1: { bg: '#FEF5C3', card: '#FFFEF5', accent: '#D4A017', primary: '#FFE44E', tabList: '#FFF4B8' },
+        2: { bg: '#E2FF90', card: '#F5FFF0', accent: '#4CAF50', primary: '#BCFF00', tabList: '#DFFF84' },
+        3: { bg: '#FEE5F3', card: '#FFF5FB', accent: '#E91E63', primary: '#FF77C3', tabList: '#FFE0F2' },
+        4: { bg: '#D5E4FF', card: '#F0F5FF', accent: '#2196F3', primary: '#5995FF', tabList: '#CFE0FF' },
+        5: { bg: '#C9FFC4', card: '#F0FFF0', accent: '#8BC34A', primary: '#6FFF62', tabList: '#BDFFB7' },
+        6: { bg: '#D5FCFF', card: '#F0FFFF', accent: '#00BCD4', primary: '#51F3FF', tabList: '#CEFBFF' },
+        7: { bg: '#FFFBD4', card: '#FFFFF5', accent: '#FFC107', primary: '#FFF163', tabList: '#FFFAC8' },
+        8: { bg: '#E6D1A2', card: '#FFF8F0', accent: '#795548', primary: '#FBB821', tabList: '#E2CC9D' },
+        9: { bg: '#FFC2C3', card: '#FFF5F5', accent: '#F44336', primary: '#FF4E51', tabList: '#FFBDBE' },
+    };
+
     useEffect(() => {
         checkAuth();
     }, []);
+
+    // Set theme colors based on destiny number
+    useEffect(() => {
+        if (basicInfo?.destiny_number) {
+            const theme = DESTINY_THEME[basicInfo.destiny_number];
+            if (theme) {
+                document.body.style.backgroundColor = theme.bg;
+                document.documentElement.style.setProperty('--destiny-card', theme.card);
+                document.documentElement.style.setProperty('--destiny-accent', theme.accent);
+                document.documentElement.style.setProperty('--destiny-primary', theme.primary);
+                document.documentElement.style.setProperty('--destiny-tablist', theme.tabList);
+            }
+        }
+        return () => {
+            document.body.style.backgroundColor = '';
+            document.documentElement.style.removeProperty('--destiny-card');
+            document.documentElement.style.removeProperty('--destiny-accent');
+            document.documentElement.style.removeProperty('--destiny-primary');
+            document.documentElement.style.removeProperty('--destiny-tablist');
+        };
+    }, [basicInfo?.destiny_number]);
 
     const checkAuth = async () => {
         const studentSession = getStudentSession();
@@ -683,7 +717,7 @@ export default function MePage() {
                         }}
                     >
                         <Tab key="basic" title="Basic Info">
-                            <Card className="mt-3 md:mt-4">
+                            <Card className="mt-3 md:mt-4" style={{ backgroundColor: 'var(--destiny-card, white)' }}>
                                 <CardBody className="p-4 md:p-6">
                                     <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6">Basic Information</h2>
 
@@ -901,7 +935,7 @@ export default function MePage() {
                             </Card>
                         </Tab>
                         <Tab key="mahadasha" title="Mahadasha">
-                            <Card className="mt-3 md:mt-4">
+                            <Card className="mt-3 md:mt-4" style={{ backgroundColor: 'var(--destiny-card, white)' }}>
                                 <CardBody className="p-4 md:p-6">
                                     <h2 className="text-lg md:text-xl font-semibold mb-4">Mahadasha</h2>
 
@@ -915,6 +949,7 @@ export default function MePage() {
                                                 color="primary"
                                                 onPress={handleCalculateMahadasha}
                                                 isLoading={calculatingMahadasha}
+                                                style={{ backgroundColor: 'var(--destiny-primary)' }}
                                             >
                                                 See my Mahadasha
                                             </Button>
@@ -977,6 +1012,7 @@ export default function MePage() {
                                                 <Button
                                                     color="primary"
                                                     onPress={handleDownloadPDF}
+                                                    style={{ backgroundColor: 'var(--destiny-primary)' }}
                                                 >
                                                     Download PDF
                                                 </Button>
@@ -994,7 +1030,7 @@ export default function MePage() {
                             </Card>
                         </Tab>
                         <Tab key="antar-dasha" title="Antar Dasha">
-                            <Card className="mt-3 md:mt-4">
+                            <Card className="mt-3 md:mt-4" style={{ backgroundColor: 'var(--destiny-card, white)' }}>
                                 <CardBody className="p-4 md:p-6">
                                     <h2 className="text-lg md:text-xl font-semibold mb-4">Antar Dasha</h2>
 
@@ -1007,6 +1043,7 @@ export default function MePage() {
                                                 color="primary"
                                                 onPress={handleCalculateAntardasha}
                                                 isLoading={calculatingAntardasha}
+                                                style={{ backgroundColor: 'var(--destiny-primary)' }}
                                             >
                                                 See my Antardasha
                                             </Button>
@@ -1068,6 +1105,7 @@ export default function MePage() {
                                                 <Button
                                                     color="primary"
                                                     onPress={handleDownloadAntardashaPDF}
+                                                    style={{ backgroundColor: 'var(--destiny-primary)' }}
                                                 >
                                                     Download PDF
                                                 </Button>
@@ -1085,7 +1123,7 @@ export default function MePage() {
                             </Card>
                         </Tab>
                         <Tab key="pratyantar-dasha" title="Pratyantar Dasha">
-                            <Card className="mt-4">
+                            <Card className="mt-4" style={{ backgroundColor: 'var(--destiny-card, white)' }}>
                                 <CardBody className="p-4 md:p-6">
                                     <h2 className="text-lg md:text-xl font-semibold mb-4">Pratyantar Dasha</h2>
 
@@ -1097,6 +1135,7 @@ export default function MePage() {
                                             <Button
                                                 color="primary"
                                                 onPress={() => setSelectedTab('antar-dasha')}
+                                                style={{ backgroundColor: 'var(--destiny-primary)' }}
                                             >
                                                 Go to Antar Dasha
                                             </Button>
@@ -1111,6 +1150,7 @@ export default function MePage() {
                                                 size="lg"
                                                 onPress={handleCalculatePratyantardasha}
                                                 isLoading={calculatingPratyantardasha}
+                                                style={{ backgroundColor: 'var(--destiny-primary)' }}
                                             >
                                                 See my Pratyantardasha
                                             </Button>
@@ -1198,6 +1238,7 @@ export default function MePage() {
                                                             <Button
                                                                 color="primary"
                                                                 onPress={handleDownloadPratyantardashaPDF}
+                                                                style={{ backgroundColor: 'var(--destiny-primary)' }}
                                                             >
                                                                 Download PDF
                                                             </Button>
@@ -1218,7 +1259,7 @@ export default function MePage() {
                             </Card>
                         </Tab>
                         <Tab key="daily-dasha" title="Daily Dasha">
-                            <Card className="mt-4">
+                            <Card className="mt-4" style={{ backgroundColor: 'var(--destiny-card, white)' }}>
                                 <CardBody className="p-4 md:p-6">
                                     <h2 className="text-lg md:text-xl font-semibold mb-4">Daily Dasha</h2>
 
@@ -1230,6 +1271,7 @@ export default function MePage() {
                                             <Button
                                                 color="primary"
                                                 onPress={() => setSelectedTab('pratyantar-dasha')}
+                                                style={{ backgroundColor: 'var(--destiny-primary)' }}
                                             >
                                                 Go to Pratyantar Dasha
                                             </Button>
@@ -1292,6 +1334,7 @@ export default function MePage() {
                                                 <Button
                                                     color="primary"
                                                     onPress={handleDownloadDailyDashaPDF}
+                                                    style={{ backgroundColor: 'var(--destiny-primary)' }}
                                                 >
                                                     Download PDF
                                                 </Button>
@@ -1309,7 +1352,7 @@ export default function MePage() {
                             </Card>
                         </Tab>
                         <Tab key="hourly-dasha" title="Hourly Dasha">
-                            <Card className="mt-4">
+                            <Card className="mt-4" style={{ backgroundColor: 'var(--destiny-card, white)' }}>
                                 <CardBody className="p-4 md:p-6">
                                     <h2 className="text-lg md:text-xl font-semibold mb-4">Hourly Dasha</h2>
 
@@ -1321,6 +1364,7 @@ export default function MePage() {
                                             <Button
                                                 color="primary"
                                                 onPress={() => setSelectedTab('pratyantar-dasha')}
+                                                style={{ backgroundColor: 'var(--destiny-primary)' }}
                                             >
                                                 Go to Pratyantar Dasha
                                             </Button>
@@ -1411,6 +1455,7 @@ export default function MePage() {
                                                             <Button
                                                                 color="primary"
                                                                 onPress={handleDownloadHourlyDashaPDF}
+                                                                style={{ backgroundColor: 'var(--destiny-primary)' }}
                                                             >
                                                                 Download PDF
                                                             </Button>
@@ -1431,7 +1476,7 @@ export default function MePage() {
                             </Card>
                         </Tab>
                         <Tab key="grids" title="Grids">
-                            <Card className="mt-3 md:mt-4">
+                            <Card className="mt-3 md:mt-4" style={{ backgroundColor: 'var(--destiny-card, white)' }}>
                                 <CardBody className="p-4 md:p-6">
                                     <h2 className="text-lg md:text-xl font-semibold mb-4">Grids</h2>
 
@@ -1523,6 +1568,7 @@ export default function MePage() {
                                                                     color="primary"
                                                                     size="sm"
                                                                     onPress={() => setSelectedTab('mahadasha')}
+                                                                    style={{ backgroundColor: 'var(--destiny-primary)' }}
                                                                 >
                                                                     Go to Mahadasha
                                                                 </Button>
@@ -1561,6 +1607,7 @@ export default function MePage() {
                                                                     color="primary"
                                                                     size="sm"
                                                                     onPress={() => setSelectedTab('mahadasha')}
+                                                                    style={{ backgroundColor: 'var(--destiny-primary)' }}
                                                                 >
                                                                     Go to Mahadasha
                                                                 </Button>
@@ -1632,6 +1679,7 @@ export default function MePage() {
                                                                     color="primary"
                                                                     size="sm"
                                                                     onPress={() => setSelectedTab('mahadasha')}
+                                                                    style={{ backgroundColor: 'var(--destiny-primary)' }}
                                                                 >
                                                                     Go to Mahadasha
                                                                 </Button>
