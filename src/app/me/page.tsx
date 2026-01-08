@@ -22,6 +22,7 @@ import {
 import LoShuGridComponent from '@/components/grids/LoShuGrid';
 import GridLegend from '@/components/grids/GridLegend';
 import StudentNavbar from '@/components/StudentNavbar';
+import { extractFirstLastName, calculateNameNumber, getNameBreakdown } from '@/lib/name-numerology';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -46,6 +47,9 @@ interface BasicInfo {
     favourable_profession: string[] | null;
     favorable_days: string[] | null;
     favorable_alphabets: string[] | null;
+    first_name: string | null;
+    last_name: string | null;
+    name_number: number | null;
 }
 
 export default function MePage() {
@@ -106,6 +110,31 @@ export default function MePage() {
 
         if (info) {
             setBasicInfo(info);
+
+            // Check if name numerology is missing for existing users
+            if (!info.first_name || !info.name_number) {
+                // Calculate name numerology from full_name
+                const { firstName, lastName } = extractFirstLastName(student.full_name);
+                const nameNumber = calculateNameNumber(firstName, lastName);
+
+                // Update basic_info with name numerology
+                await supabase
+                    .from('basic_info')
+                    .update({
+                        first_name: firstName,
+                        last_name: lastName,
+                        name_number: nameNumber,
+                    })
+                    .eq('student_id', studentSession.id);
+
+                // Update local state
+                setBasicInfo({
+                    ...info,
+                    first_name: firstName,
+                    last_name: lastName,
+                    name_number: nameNumber,
+                });
+            }
         }
 
         // Fetch mahadasha data
@@ -659,7 +688,7 @@ export default function MePage() {
                                     <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6">Basic Information</h2>
 
                                     {/* Numerology Numbers */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                                         <Card className="bg-primary-50">
                                             <CardBody className="text-center p-4">
                                                 <p className="text-sm text-default-500 mb-1">Root Number</p>
@@ -685,6 +714,14 @@ export default function MePage() {
                                                 <p className="text-sm text-default-500 mb-1">Destiny Number</p>
                                                 <p className="text-3xl font-bold text-success">
                                                     {basicInfo?.destiny_number ?? '-'}
+                                                </p>
+                                            </CardBody>
+                                        </Card>
+                                        <Card className="bg-warning-50">
+                                            <CardBody className="text-center p-4">
+                                                <p className="text-sm text-default-500 mb-1">Name Number</p>
+                                                <p className="text-3xl font-bold text-warning">
+                                                    {basicInfo?.name_number ?? '-'}
                                                 </p>
                                             </CardBody>
                                         </Card>
@@ -817,6 +854,49 @@ export default function MePage() {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Name Breakdown Tables */}
+                                    {basicInfo?.first_name && (
+                                        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-6">
+                                            <div>
+                                                <p className="text-sm text-default-500 mb-2">Name Numerology</p>
+                                                <Table aria-label="First name" removeWrapper>
+                                                    <TableHeader>
+                                                        <TableColumn>First Name</TableColumn>
+                                                        <TableColumn className="text-right">Number</TableColumn>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {getNameBreakdown(basicInfo.first_name).map((item, idx) => (
+                                                            <TableRow key={idx}>
+                                                                <TableCell>{item.letter}</TableCell>
+                                                                <TableCell className="text-right">{item.value}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+
+                                            {basicInfo.first_name !== basicInfo.last_name && basicInfo.last_name && (
+                                                <div>
+                                                    <p className="text-sm text-default-500 mb-2 opacity-0">.</p>
+                                                    <Table aria-label="Last name" removeWrapper>
+                                                        <TableHeader>
+                                                            <TableColumn>Last Name</TableColumn>
+                                                            <TableColumn className="text-right">Number</TableColumn>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {getNameBreakdown(basicInfo.last_name).map((item, idx) => (
+                                                                <TableRow key={idx}>
+                                                                    <TableCell>{item.letter}</TableCell>
+                                                                    <TableCell className="text-right">{item.value}</TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </CardBody>
                             </Card>
                         </Tab>
@@ -1614,6 +1694,6 @@ export default function MePage() {
                     </Tabs>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

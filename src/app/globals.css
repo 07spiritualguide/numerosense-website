@@ -4,8 +4,89 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Background & Foreground */
   --background: #ffffff;
-  --foreground: #171715;
+  --foreground: #000000;
+
+  /* Base Colors */
+  --default: #d4d4d8;
+  --default-foreground: #000;
+
+  --primary: #006fee;
+  --primary-foreground: #fff;
+
+  --secondary: #7828c8;
+  --secondary-foreground: #fff;
+
+  --success: #17c964;
+  --success-foreground: #000;
+
+  --warning: #f5a524;
+  --warning-foreground: #000;
+
+  --danger: #f31260;
+  --danger-foreground: #000;
+
+  /* Content */
+  --content1: #ffffff;
+  --content1-foreground: #000;
+  --content2: #f4f4f5;
+  --content2-foreground: #000;
+  --content3: #e4e4e7;
+  --content3-foreground: #000;
+  --content4: #d4d4d8;
+  --content4-foreground: #000;
+
+  /* Focus & Overlay */
+  --focus: #006FEE;
+  --overlay: #ffffff;
+
+  /* Layout */
+  --disabled-opacity: 0.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Background & Foreground */
+    --background: #ffffff;
+    --foreground: #000000;
+
+    /* Base Colors */
+    --default: #d4d4d8;
+    --default-foreground: #000;
+
+    --primary: #006fee;
+    --primary-foreground: #fff;
+
+    --secondary: #7828c8;
+    --secondary-foreground: #fff;
+
+    --success: #17c964;
+    --success-foreground: #000;
+
+    --warning: #f5a524;
+    --warning-foreground: #000;
+
+    --danger: #f31260;
+    --danger-foreground: #000;
+
+    /* Content */
+    --content1: #ffffff;
+    --content1-foreground: #000;
+    --content2: #f4f4f5;
+    --content2-foreground: #000;
+    --content3: #e4e4e7;
+    --content3-foreground: #000;
+    --content4: #d4d4d8;
+    --content4-foreground: #000;
+
+    /* Focus & Overlay */
+    --focus: #006FEE;
+    --overlay: #ffffff;
+
+    /* Layout */
+    --disabled-opacity: 0.5;
+  }
 }
 
 @theme inline {
@@ -13,13 +94,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

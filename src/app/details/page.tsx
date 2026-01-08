@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { getStudentSession, setStudentSession } from '@/lib/auth';
 import { calculateNumerology } from '@/lib/numerology';
 import { getNumerologyDataForDestiny } from '@/lib/numerologyData';
+import { extractFirstLastName, calculateNameNumber } from '@/lib/name-numerology';
 import StudentNavbar from '@/components/StudentNavbar';
 
 export default function DetailsPage() {
@@ -86,6 +87,12 @@ export default function DetailsPage() {
             const numerology = calculateNumerology(dob);
             const destinyData = getNumerologyDataForDestiny(numerology.destinyNumber);
 
+            // Extract first and last name from full name
+            const { firstName, lastName } = extractFirstLastName(fullName);
+
+            // Calculate name number using Chaldean system
+            const nameNumber = calculateNameNumber(firstName, lastName);
+
             // Prepare full basic_info data
             const basicInfoData = {
                 root_number: numerology.rootNumber,
@@ -101,6 +108,9 @@ export default function DetailsPage() {
                 lucky_direction: destinyData?.lucky_direction || null,
                 favorable_alphabets: destinyData?.favorable_alphabets || null,
                 favourable_profession: destinyData?.favourable_profession || null,
+                first_name: firstName,
+                last_name: lastName,
+                name_number: nameNumber,
                 updated_at: new Date().toISOString(),
             };
 
