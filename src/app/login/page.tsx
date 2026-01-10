@@ -54,9 +54,10 @@ export default function StudentLoginPage() {
                 id: student.id,
                 name: student.name,
                 phone: student.phone,
+                trial_ends_at: student.trial_ends_at,
             });
 
-            router.push('/');
+            router.push('/me');
         } catch (err) {
             setError('An unexpected error occurred.');
             console.error(err);

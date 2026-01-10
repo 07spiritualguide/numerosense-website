@@ -70,6 +70,7 @@ export default function MePage() {
     const [selectedGridTab, setSelectedGridTab] = useState('basic-grids');
     const [selectedMonthlyYear, setSelectedMonthlyYear] = useState<number>(new Date().getFullYear());
     const [selectedPersonalYearStart, setSelectedPersonalYearStart] = useState<number>(new Date().getFullYear());
+    const [isTrialExpired, setIsTrialExpired] = useState(false);
 
     // Destiny number to theme color mapping
     const DESTINY_THEME: Record<number, { bg: string; card: string; accent: string; primary: string; tabList: string; gridBorder: string; gridBg: string }> = {
@@ -84,9 +85,40 @@ export default function MePage() {
         9: { bg: '#FFC2C3', card: '#FFF5F5', accent: '#F44336', primary: '#FF4E51', tabList: '#FFBDBE', gridBorder: '#FFE2E2', gridBg: '#FFF5F5' },
     };
 
+
     useEffect(() => {
         checkAuth();
     }, []);
+
+    // Check trial expiry - fetch fresh data from database
+    useEffect(() => {
+        const checkExpiry = async () => {
+            if (!session?.id) return;
+
+            // Fetch latest trial_ends_at from database
+            const { data } = await supabase
+                .from('students')
+                .select('trial_ends_at')
+                .eq('id', session.id)
+                .single();
+
+            if (data?.trial_ends_at && new Date(data.trial_ends_at) < new Date()) {
+                setIsTrialExpired(true);
+                document.body.style.overflow = 'hidden';
+            } else {
+                setIsTrialExpired(false);
+                document.body.style.overflow = '';
+            }
+        };
+
+        checkExpiry();
+        const interval = setInterval(checkExpiry, 5000); // Check every 5 seconds
+
+        return () => {
+            clearInterval(interval);
+            document.body.style.overflow = '';
+        };
+    }, [session]);
 
     // Set theme colors based on destiny number
     useEffect(() => {
@@ -699,6 +731,38 @@ export default function MePage() {
 
     return (
         <div className="min-h-screen">
+            {/* Trial Expired Overlay - Cannot be removed via DevTools */}
+            {isTrialExpired && (
+                <div
+                    className="fixed inset-0 z-[99999] flex items-center justify-center"
+                    style={{
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        pointerEvents: 'all'
+                    }}
+                >
+                    <Card className="max-w-md mx-4 shadow-2xl">
+                        <CardBody className="p-6 text-center space-y-4">
+                            <div className="w-16 h-16 mx-auto bg-warning-100 rounded-full flex items-center justify-center">
+                                <span className="text-3xl">⏰</span>
+                            </div>
+                            <h2 className="text-xl font-bold">Free Trial Ended</h2>
+                            <p className="text-default-500">
+                                Your free trial period has expired. Please complete the payment to continue accessing your numerology insights.
+                            </p>
+                            <Button
+                                color="success"
+                                size="lg"
+                                className="w-full"
+                                onPress={() => window.open(`https://wa.me/919820656730?text=Hi, I want to extend my Numerosense access for the number: ${session?.phone}`, '_blank')}
+                            >
+                                💬 Contact Admin on WhatsApp
+                            </Button>
+                        </CardBody>
+                    </Card>
+                </div>
+            )}
             <StudentNavbar />
             <div className="p-3 md:p-4">
                 <div className="max-w-4xl mx-auto">

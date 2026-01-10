@@ -39,6 +39,7 @@ export interface StudentSession {
     id: string;
     name: string;
     phone: string;
+    trial_ends_at: string | null;
 }
 
 const STUDENT_SESSION_KEY = 'student_session';
