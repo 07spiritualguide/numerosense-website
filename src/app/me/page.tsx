@@ -212,7 +212,7 @@ export default function MePage() {
             .from('mahadasha')
             .select('timeline')
             .eq('student_id', studentSession.id)
-            .single();
+            .maybeSingle();
 
         if (mahadasha?.timeline) {
             setMahadashaTimeline(mahadasha.timeline as MahadashaEntry[]);
