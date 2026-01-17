@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, CardBody, CardHeader } from '@heroui/react';
-import { supabase } from '@/lib/supabase';
-import { verifyPassword, setStudentSession } from '@/lib/auth';
+import { setStudentSession } from '@/lib/auth';
 
 export default function StudentLoginPage() {
     const router = useRouter();
@@ -19,45 +18,32 @@ export default function StudentLoginPage() {
         setError('');
 
         try {
-            const { data: student, error: fetchError } = await supabase
-                .from('students')
-                .select('*')
-                .eq('phone', phone)
-                .single();
-
-            if (fetchError || !student) {
-                setError('Invalid phone number or password.');
-                setLoading(false);
-                return;
-            }
-
-            if (!student.is_active) {
-                setError('Your account has been deactivated. Please contact support.');
-                setLoading(false);
-                return;
-            }
-
-            const isValid = await verifyPassword(password, student.password_hash);
-
-            if (!isValid) {
-                setError('Invalid phone number or password.');
-                setLoading(false);
-                return;
-            }
-
-            await supabase
-                .from('students')
-                .update({ last_login: new Date().toISOString() })
-                .eq('id', student.id);
-
-            setStudentSession({
-                id: student.id,
-                name: student.name,
-                phone: student.phone,
-                trial_ends_at: student.trial_ends_at,
+            // Use server-side password verification
+            const response = await fetch('/api/auth/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ phone, password }),
             });
 
-            router.push('/me');
+            const result = await response.json();
+
+            if (!result.valid) {
+                setError(result.error || 'Invalid phone number or password.');
+                setLoading(false);
+                return;
+            }
+
+            // Save session (password hash is never sent to client now)
+            setStudentSession({
+                id: result.student.id,
+                name: result.student.name,
+                phone: result.student.phone,
+                trial_ends_at: result.student.trial_ends_at,
+            });
+
+            router.push(result.student.profile_complete ? '/me' : '/details');
         } catch (err) {
             setError('An unexpected error occurred.');
             console.error(err);

@@ -359,13 +359,11 @@ Current Antardasha: ${currentAntardasha ? `Number ${currentAntardasha.number}` :
                 { role: 'user', content: userMessage },
             ];
 
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            // Use secure server-side proxy instead of direct OpenRouter call
+            const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
-                    Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_KEY}`,
                     'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://numerosense.com',
-                    'X-Title': 'NumeroSense Website',
                 },
                 body: JSON.stringify({
                     model: 'nvidia/nemotron-3-nano-30b-a3b:free',

@@ -65,23 +65,6 @@ export default function DetailsPage() {
         }
 
         try {
-            // Update student profile
-            const { error: updateError } = await supabase
-                .from('students')
-                .update({
-                    full_name: fullName,
-                    date_of_birth: dateOfBirth,
-                    gender: gender,
-                    profile_complete: true,
-                })
-                .eq('id', session.id);
-
-            if (updateError) {
-                setError(updateError.message);
-                setSaving(false);
-                return;
-            }
-
             // Calculate numerology from DOB
             const dob = new Date(dateOfBirth);
             const numerology = calculateNumerology(dob);
@@ -111,30 +94,45 @@ export default function DetailsPage() {
                 first_name: firstName,
                 last_name: lastName,
                 name_number: nameNumber,
-                updated_at: new Date().toISOString(),
             };
 
-            // Check if basic_info already exists for this student
-            const { data: existingInfo } = await supabase
-                .from('basic_info')
-                .select('id')
-                .eq('student_id', session.id)
-                .single();
+            // Update student profile via API
+            const profileResponse = await fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studentId: session.id,
+                    action: 'update-student-profile',
+                    data: {
+                        full_name: fullName,
+                        date_of_birth: dateOfBirth,
+                        gender: gender,
+                        profile_complete: true,
+                    },
+                }),
+            });
 
-            if (existingInfo) {
-                // Update existing record
-                await supabase
-                    .from('basic_info')
-                    .update(basicInfoData)
-                    .eq('student_id', session.id);
-            } else {
-                // Insert new record
-                await supabase
-                    .from('basic_info')
-                    .insert({
-                        student_id: session.id,
-                        ...basicInfoData,
-                    });
+            const profileResult = await profileResponse.json();
+            if (!profileResult.success) {
+                setError(profileResult.error || 'Failed to update profile');
+                setSaving(false);
+                return;
+            }
+
+            // Upsert basic_info via API
+            const basicInfoResponse = await fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studentId: session.id,
+                    action: 'upsert-basic-info',
+                    data: basicInfoData,
+                }),
+            });
+
+            const basicInfoResult = await basicInfoResponse.json();
+            if (!basicInfoResult.success) {
+                console.error('Basic info error:', basicInfoResult.error);
             }
 
             // Update session with new name
