@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardBody, Spinner, Button, Input, ScrollShadow } from '@heroui/react';
 import { supabase } from '@/lib/supabase';
-import { getStudentSession, StudentSession } from '@/lib/auth';
+import { getStudentSession, getSessionToken, StudentSession } from '@/lib/auth';
 import StudentNavbar from '@/components/StudentNavbar';
 
 interface Message {
@@ -370,14 +370,16 @@ Current Antardasha: ${currentAntardasha ? `Number ${currentAntardasha.number}` :
                 { role: 'user', content: userMessage },
             ];
 
-            // Use secure server-side proxy instead of direct OpenRouter call
+            // Use secure server-side proxy with JWT authentication
+            const sessionToken = getSessionToken();
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}),
                 },
                 body: JSON.stringify({
-                    studentId: session.id,
+                    sessionToken,
                     model: 'nvidia/nemotron-3-nano-30b-a3b:free',
                     messages: conversationHistory,
                 }),

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders } from '@/lib/cors';
+import { verifySessionToken, extractTokenFromHeader } from '@/lib/jwt';
 
 /**
  * Server-side API routes for secure data mutations
- * Uses service_role key to bypass RLS (we validate session manually)
+ * Uses JWT for authentication and service_role key to bypass RLS
  */
 
 // Create a Supabase client (service role preferred, falls back to anon for dev)
@@ -27,32 +28,43 @@ function getSupabaseClient() {
     });
 }
 
-// Validate that the request includes a valid student session
+// Validate that the request includes a valid JWT session token
 async function validateSession(request: NextRequest): Promise<{ studentId: string } | null> {
     try {
-        const body = await request.clone().json();
-        const { studentId, sessionToken } = body;
+        // Try to get token from Authorization header first
+        const authHeader = request.headers.get('authorization');
+        let token = extractTokenFromHeader(authHeader);
 
-        if (!studentId) {
+        // Fall back to sessionToken in body for backward compatibility
+        if (!token) {
+            const body = await request.clone().json();
+            token = body.sessionToken;
+        }
+
+        if (!token) {
             return null;
         }
 
-        // For now, we trust the studentId from the client
-        // In future, we can add JWT validation here
+        // Verify JWT token signature and expiration
+        const payload = await verifySessionToken(token);
+        if (!payload || !payload.studentId) {
+            return null;
+        }
+
         const supabase = getSupabaseClient();
 
-        // Verify student exists and is active
+        // Verify student still exists and is active
         const { data: student, error } = await supabase
             .from('students')
             .select('id, is_active')
-            .eq('id', studentId)
+            .eq('id', payload.studentId)
             .single();
 
         if (error || !student || !student.is_active) {
             return null;
         }
 
-        return { studentId };
+        return { studentId: payload.studentId };
     } catch {
         return null;
     }

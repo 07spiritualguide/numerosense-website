@@ -43,6 +43,7 @@ export interface StudentSession {
 }
 
 const STUDENT_SESSION_KEY = 'student_session';
+const SESSION_TOKEN_KEY = 'session_token';
 
 /**
  * Get student session from localStorage
@@ -67,9 +68,27 @@ export function setStudentSession(session: StudentSession): void {
 }
 
 /**
- * Clear student session
+ * Get session token (JWT) from localStorage
+ */
+export function getSessionToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(SESSION_TOKEN_KEY);
+}
+
+/**
+ * Set session token (JWT) in localStorage
+ */
+export function setSessionToken(token: string): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(SESSION_TOKEN_KEY, token);
+}
+
+/**
+ * Clear student session and token
  */
 export function clearStudentSession(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(STUDENT_SESSION_KEY);
+    localStorage.removeItem(SESSION_TOKEN_KEY);
 }
+

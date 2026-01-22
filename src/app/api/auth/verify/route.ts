@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
 import { getCorsHeaders } from '@/lib/cors';
+import { signSessionToken } from '@/lib/jwt';
 
 /**
  * Server-side password verification API
@@ -98,9 +99,17 @@ export async function POST(request: NextRequest) {
             .update({ last_login: new Date().toISOString() })
             .eq('id', student.id);
 
-        // Return session data (never send password_hash to client)
+        // Generate session token
+        const sessionToken = await signSessionToken({
+            studentId: student.id,
+            phone: student.phone,
+            name: student.name,
+        });
+
+        // Return session data with token (never send password_hash to client)
         return NextResponse.json({
             valid: true,
+            sessionToken,
             student: {
                 id: student.id,
                 name: student.name,

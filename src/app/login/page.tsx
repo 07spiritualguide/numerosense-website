@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, CardBody, CardHeader } from '@heroui/react';
-import { setStudentSession } from '@/lib/auth';
+import { setStudentSession, setSessionToken } from '@/lib/auth';
 
 export default function StudentLoginPage() {
     const router = useRouter();
@@ -48,7 +48,12 @@ export default function StudentLoginPage() {
                 return;
             }
 
-            // Save session (password hash is never sent to client now)
+            // Save session token (JWT)
+            if (result.sessionToken) {
+                setSessionToken(result.sessionToken);
+            }
+
+            // Save session data
             setStudentSession({
                 id: result.student.id,
                 name: result.student.name,

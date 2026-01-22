@@ -1,13 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders } from '@/lib/cors';
+import { verifySessionToken, extractTokenFromHeader } from '@/lib/jwt';
 
 /**
- * Validate that the studentId exists and is active
+ * Validate session token and check student is active
  */
-async function validateStudent(studentId: string): Promise<boolean> {
-    if (!studentId) return false;
+async function validateSession(request: NextRequest, body: any): Promise<string | null> {
+    // Try to get token from Authorization header first
+    const authHeader = request.headers.get('authorization');
+    let token = extractTokenFromHeader(authHeader);
 
+    // Fall back to sessionToken in body for backward compatibility
+    if (!token) {
+        token = body.sessionToken;
+    }
+
+    if (!token) {
+        return null;
+    }
+
+    // Verify JWT token signature and expiration
+    const payload = await verifySessionToken(token);
+    if (!payload || !payload.studentId) {
+        return null;
+    }
+
+    // Verify student is still active
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -23,37 +42,34 @@ async function validateStudent(studentId: string): Promise<boolean> {
     const { data: student, error } = await supabase
         .from('students')
         .select('id, is_active')
-        .eq('id', studentId)
+        .eq('id', payload.studentId)
         .single();
 
-    return !error && student && student.is_active;
+    if (error || !student || !student.is_active) {
+        return null;
+    }
+
+    return payload.studentId;
 }
 
 /**
  * Server-side proxy for OpenRouter AI API
  * This keeps the API key secure on the server
- * Requires valid studentId for authentication
+ * Requires valid JWT session token for authentication
  */
 export async function POST(request: NextRequest) {
     const corsHeaders = getCorsHeaders(request);
 
     try {
         const body = await request.json();
-        const { messages, model, studentId } = body;
+        const { messages, model } = body;
 
-        // Validate student authentication
+        // Validate session token
+        const studentId = await validateSession(request, body);
         if (!studentId) {
             return NextResponse.json(
                 { error: 'Authentication required' },
                 { status: 401, headers: corsHeaders }
-            );
-        }
-
-        const isValidStudent = await validateStudent(studentId);
-        if (!isValidStudent) {
-            return NextResponse.json(
-                { error: 'Invalid or inactive account' },
-                { status: 403, headers: corsHeaders }
             );
         }
 
