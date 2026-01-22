@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+import { getCorsHeaders } from '@/lib/cors';
 
 /**
  * Validate that the studentId exists and is active
@@ -40,6 +35,8 @@ async function validateStudent(studentId: string): Promise<boolean> {
  * Requires valid studentId for authentication
  */
 export async function POST(request: NextRequest) {
+    const corsHeaders = getCorsHeaders(request);
+
     try {
         const body = await request.json();
         const { messages, model, studentId } = body;
@@ -111,14 +108,10 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// CORS headers for mobile app
-export async function OPTIONS() {
+// CORS preflight
+export async function OPTIONS(request: NextRequest) {
     return new NextResponse(null, {
         status: 200,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+        headers: getCorsHeaders(request),
     });
 }

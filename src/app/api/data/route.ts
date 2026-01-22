@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCorsHeaders } from '@/lib/cors';
 
 /**
  * Server-side API routes for secure data mutations
@@ -57,26 +58,19 @@ async function validateSession(request: NextRequest): Promise<{ studentId: strin
     }
 }
 
-// Helper for CORS
-function corsHeaders() {
-    return {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-    };
-}
-
-export async function OPTIONS() {
-    return new NextResponse(null, { status: 200, headers: corsHeaders() });
+export async function OPTIONS(request: NextRequest) {
+    return new NextResponse(null, { status: 200, headers: getCorsHeaders(request) });
 }
 
 export async function POST(request: NextRequest) {
+    const corsHeaders = getCorsHeaders(request);
+
     try {
         const session = await validateSession(request);
         if (!session) {
             return NextResponse.json(
                 { error: 'Invalid or expired session' },
-                { status: 401, headers: corsHeaders() }
+                { status: 401, headers: corsHeaders }
             );
         }
 
@@ -105,7 +99,7 @@ export async function POST(request: NextRequest) {
                         .insert({ student_id: session.studentId, ...data });
                     if (error) throw error;
                 }
-                return NextResponse.json({ success: true }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true }, { headers: corsHeaders });
             }
 
             case 'upsert-mahadasha': {
@@ -127,7 +121,7 @@ export async function POST(request: NextRequest) {
                         .insert({ student_id: session.studentId, timeline: data.timeline });
                     if (error) throw error;
                 }
-                return NextResponse.json({ success: true }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true }, { headers: corsHeaders });
             }
 
             case 'upsert-antardasha': {
@@ -149,7 +143,7 @@ export async function POST(request: NextRequest) {
                         .insert({ student_id: session.studentId, timeline: data.timeline });
                     if (error) throw error;
                 }
-                return NextResponse.json({ success: true }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true }, { headers: corsHeaders });
             }
 
             case 'upsert-pratyantardasha': {
@@ -171,7 +165,7 @@ export async function POST(request: NextRequest) {
                         .insert({ student_id: session.studentId, timeline: data.timeline });
                     if (error) throw error;
                 }
-                return NextResponse.json({ success: true }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true }, { headers: corsHeaders });
             }
 
             case 'update-student-profile': {
@@ -180,7 +174,7 @@ export async function POST(request: NextRequest) {
                     .update(data)
                     .eq('id', session.studentId);
                 if (error) throw error;
-                return NextResponse.json({ success: true }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true }, { headers: corsHeaders });
             }
 
             case 'update-last-login': {
@@ -189,7 +183,7 @@ export async function POST(request: NextRequest) {
                     .update({ last_login: new Date().toISOString() })
                     .eq('id', session.studentId);
                 if (error) throw error;
-                return NextResponse.json({ success: true }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true }, { headers: corsHeaders });
             }
 
             case 'create-chat-session': {
@@ -202,7 +196,7 @@ export async function POST(request: NextRequest) {
                     .select()
                     .single();
                 if (error) throw error;
-                return NextResponse.json({ success: true, data: newSession }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true, data: newSession }, { headers: corsHeaders });
             }
 
             case 'update-chat-session': {
@@ -217,7 +211,7 @@ export async function POST(request: NextRequest) {
                 if (!existing) {
                     return NextResponse.json(
                         { error: 'Session not found' },
-                        { status: 404, headers: corsHeaders() }
+                        { status: 404, headers: corsHeaders }
                     );
                 }
 
@@ -229,7 +223,7 @@ export async function POST(request: NextRequest) {
                     })
                     .eq('id', data.sessionId);
                 if (error) throw error;
-                return NextResponse.json({ success: true }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true }, { headers: corsHeaders });
             }
 
             case 'delete-chat-session': {
@@ -244,7 +238,7 @@ export async function POST(request: NextRequest) {
                 if (!existing) {
                     return NextResponse.json(
                         { error: 'Session not found' },
-                        { status: 404, headers: corsHeaders() }
+                        { status: 404, headers: corsHeaders }
                     );
                 }
 
@@ -253,7 +247,7 @@ export async function POST(request: NextRequest) {
                     .delete()
                     .eq('id', data.sessionId);
                 if (error) throw error;
-                return NextResponse.json({ success: true }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true }, { headers: corsHeaders });
             }
 
             case 'add-chat-message': {
@@ -268,7 +262,7 @@ export async function POST(request: NextRequest) {
                 if (!existingSession) {
                     return NextResponse.json(
                         { error: 'Session not found' },
-                        { status: 404, headers: corsHeaders() }
+                        { status: 404, headers: corsHeaders }
                     );
                 }
 
@@ -290,20 +284,20 @@ export async function POST(request: NextRequest) {
                     .update({ updated_at: new Date().toISOString() })
                     .eq('id', data.sessionId);
 
-                return NextResponse.json({ success: true, data: newMessage }, { headers: corsHeaders() });
+                return NextResponse.json({ success: true, data: newMessage }, { headers: corsHeaders });
             }
 
             default:
                 return NextResponse.json(
                     { error: 'Unknown action' },
-                    { status: 400, headers: corsHeaders() }
+                    { status: 400, headers: corsHeaders }
                 );
         }
     } catch (error: any) {
         console.error('Data mutation error:', error);
         return NextResponse.json(
             { error: error.message || 'Failed to process request' },
-            { status: 500, headers: corsHeaders() }
+            { status: 500, headers: corsHeaders }
         );
     }
 }

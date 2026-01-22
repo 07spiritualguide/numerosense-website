@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
+import { getCorsHeaders } from '@/lib/cors';
 
 /**
  * Server-side password verification API
@@ -39,20 +40,13 @@ function hashPasswordSHA256(password: string): string {
 //     return bcrypt.compare(password, hash);
 // }
 
-// CORS headers
-function corsHeaders() {
-    return {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-    };
-}
-
-export async function OPTIONS() {
-    return new NextResponse(null, { status: 200, headers: corsHeaders() });
+export async function OPTIONS(request: NextRequest) {
+    return new NextResponse(null, { status: 200, headers: getCorsHeaders(request) });
 }
 
 export async function POST(request: NextRequest) {
+    const corsHeaders = getCorsHeaders(request);
+
     try {
         const body = await request.json();
         const { phone, password } = body;
@@ -60,7 +54,7 @@ export async function POST(request: NextRequest) {
         if (!phone || !password) {
             return NextResponse.json(
                 { error: 'Phone and password are required' },
-                { status: 400, headers: corsHeaders() }
+                { status: 400, headers: corsHeaders }
             );
         }
 
@@ -77,14 +71,14 @@ export async function POST(request: NextRequest) {
             // Don't reveal whether phone exists
             return NextResponse.json(
                 { valid: false, error: 'Invalid phone number or password' },
-                { status: 401, headers: corsHeaders() }
+                { status: 401, headers: corsHeaders }
             );
         }
 
         if (!student.is_active) {
             return NextResponse.json(
                 { valid: false, error: 'Your account has been deactivated. Please contact support.' },
-                { status: 401, headers: corsHeaders() }
+                { status: 401, headers: corsHeaders }
             );
         }
 
@@ -94,7 +88,7 @@ export async function POST(request: NextRequest) {
         if (passwordHash !== student.password_hash) {
             return NextResponse.json(
                 { valid: false, error: 'Invalid phone number or password' },
-                { status: 401, headers: corsHeaders() }
+                { status: 401, headers: corsHeaders }
             );
         }
 
@@ -114,13 +108,13 @@ export async function POST(request: NextRequest) {
                 trial_ends_at: student.trial_ends_at,
                 profile_complete: student.profile_complete,
             },
-        }, { headers: corsHeaders() });
+        }, { headers: corsHeaders });
 
     } catch (error: any) {
         console.error('Auth verification error:', error);
         return NextResponse.json(
             { valid: false, error: 'Authentication failed' },
-            { status: 500, headers: corsHeaders() }
+            { status: 500, headers: corsHeaders }
         );
     }
 }
