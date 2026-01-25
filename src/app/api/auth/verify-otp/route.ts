@@ -5,7 +5,7 @@ import { getCorsHeaders } from '@/lib/cors';
 
 /**
  * Verify OTP API - Step 2
- * Verifies OTP and resets password
+ * Verifies OTP and sets user-provided password
  */
 
 // Create Supabase client with service role
@@ -34,54 +34,6 @@ function hashPassword(password: string): string {
     return crypto.createHash('sha256').update(data).digest('hex');
 }
 
-// Generate random 8-character alphanumeric password (matching existing implementation)
-function generatePassword(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
-}
-
-// Send new password via SMS
-async function sendNewPasswordSms(phone: string, name: string, password: string): Promise<boolean> {
-    const apiKey = process.env.NEXT_FAST2SMS_API_KEY;
-    if (!apiKey) {
-        console.error('NEXT_FAST2SMS_API_KEY not configured');
-        return false;
-    }
-
-    // Clean phone number
-    let cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.startsWith('91') && cleanPhone.length > 10) {
-        cleanPhone = cleanPhone.slice(-10);
-    }
-
-    const message = `Hi ${name}, your new Numerosense password is: ${password}\n\nPlease login and keep this password safe.`;
-
-    const params = new URLSearchParams({
-        authorization: apiKey,
-        route: 'q',
-        message: message,
-        language: 'english',
-        flash: '0',
-        numbers: cleanPhone,
-    });
-
-    try {
-        const response = await fetch(`https://www.fast2sms.com/dev/bulkV2?${params.toString()}`, {
-            method: 'GET',
-        });
-        const data = await response.json();
-        console.log('New Password SMS Response:', data);
-        return data.return === true;
-    } catch (error) {
-        console.error('Failed to send new password SMS:', error);
-        return false;
-    }
-}
-
 export async function OPTIONS(request: NextRequest) {
     return new NextResponse(null, { status: 200, headers: getCorsHeaders(request) });
 }
@@ -91,11 +43,25 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { phone, otp } = body;
+        const { phone, otp, newPassword } = body;
 
         if (!phone || !otp) {
             return NextResponse.json(
                 { error: 'Phone number and OTP are required' },
+                { status: 400, headers: corsHeaders }
+            );
+        }
+
+        if (!newPassword) {
+            return NextResponse.json(
+                { error: 'New password is required' },
+                { status: 400, headers: corsHeaders }
+            );
+        }
+
+        if (newPassword.length < 4) {
+            return NextResponse.json(
+                { error: 'Password must be at least 4 characters' },
                 { status: 400, headers: corsHeaders }
             );
         }
@@ -158,14 +124,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // OTP is valid - generate new password
-        const newPassword = generatePassword();
+        // OTP is valid - hash the user-provided password
         const newPasswordHash = hashPassword(newPassword);
 
-        // Get student info for SMS
+        // Get student info
         const { data: student, error: studentError } = await supabase
             .from('students')
-            .select('id, name')
+            .select('id')
             .eq('phone', cleanPhone)
             .single();
 
@@ -196,13 +161,9 @@ export async function POST(request: NextRequest) {
             .update({ used: true })
             .eq('id', token.id);
 
-        // Send new password via SMS
-        const smsSent = await sendNewPasswordSms(cleanPhone, student.name, newPassword);
-
         return NextResponse.json({
             success: true,
-            message: 'Password reset successful! Your new password has been sent via SMS.',
-            smsSent,
+            message: 'Password reset successful! You can now login with your new password.',
         }, { headers: corsHeaders });
 
     } catch (error: any) {

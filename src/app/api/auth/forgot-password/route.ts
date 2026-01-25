@@ -33,7 +33,7 @@ function hashOTP(otp: string): string {
     return crypto.createHash('sha256').update(otp + 'numerosense_otp_salt').digest('hex');
 }
 
-// Send SMS via Fast2SMS
+// Send SMS via Fast2SMS OTP Route (uses pre-approved DLT template)
 async function sendOtpSms(phone: string, otp: string): Promise<boolean> {
     const apiKey = process.env.NEXT_FAST2SMS_API_KEY;
     if (!apiKey) {
@@ -47,13 +47,11 @@ async function sendOtpSms(phone: string, otp: string): Promise<boolean> {
         cleanPhone = cleanPhone.slice(-10);
     }
 
-    const message = `Your Numerosense password reset OTP is: ${otp}. Valid for 10 minutes. Do not share this with anyone.`;
-
+    // Use OTP route - delivers as "Your OTP is {otp}"
     const params = new URLSearchParams({
         authorization: apiKey,
-        route: 'q',
-        message: message,
-        language: 'english',
+        route: 'otp',
+        variables_values: otp,
         flash: '0',
         numbers: cleanPhone,
     });

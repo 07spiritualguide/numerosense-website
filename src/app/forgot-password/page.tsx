@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, CardBody, CardHeader, Link } from '@heroui/react';
 
@@ -11,6 +11,8 @@ export default function ForgotPasswordPage() {
     const [step, setStep] = useState<Step>('phone');
     const [phone, setPhone] = useState('');
     const [otp, setOtp] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
@@ -64,6 +66,21 @@ export default function ForgotPasswordPage() {
             return;
         }
 
+        if (!newPassword) {
+            setError('Please enter a new password');
+            return;
+        }
+
+        if (newPassword.length < 4) {
+            setError('Password must be at least 4 characters');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+
         setLoading(true);
         setError('');
 
@@ -71,7 +88,7 @@ export default function ForgotPasswordPage() {
             const response = await fetch('/api/auth/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: phone.trim(), otp }),
+                body: JSON.stringify({ phone: phone.trim(), otp, newPassword }),
             });
 
             const result = await response.json();
@@ -141,7 +158,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
             <div className="text-center mb-2">
                 <p className="text-default-500 text-sm">
-                    We've sent a 6-digit OTP to{' '}
+                    Enter the OTP sent to{' '}
                     <span className="font-semibold text-foreground">{phone}</span>
                 </p>
             </div>
@@ -159,6 +176,24 @@ export default function ForgotPasswordPage() {
                 }}
             />
 
+            <Input
+                type="password"
+                label="New Password"
+                placeholder="Enter new password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                isRequired
+            />
+
+            <Input
+                type="password"
+                label="Confirm Password"
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                isRequired
+            />
+
             {error && (
                 <div className="text-danger text-sm p-2 bg-danger-50 rounded-lg">
                     {error}
@@ -170,9 +205,9 @@ export default function ForgotPasswordPage() {
                 isLoading={loading}
                 color="primary"
                 className="w-full"
-                isDisabled={otp.length !== 6}
+                isDisabled={otp.length !== 6 || !newPassword || !confirmPassword}
             >
-                Verify & Reset Password
+                Reset Password
             </Button>
 
             <div className="flex flex-col gap-2 text-center">
@@ -189,6 +224,8 @@ export default function ForgotPasswordPage() {
                     onPress={() => {
                         setStep('phone');
                         setOtp('');
+                        setNewPassword('');
+                        setConfirmPassword('');
                         setError('');
                     }}
                     isDisabled={loading}
@@ -211,7 +248,7 @@ export default function ForgotPasswordPage() {
                     Password Reset!
                 </h2>
                 <p className="text-default-500 text-sm">
-                    Your new password has been sent to your phone via SMS. Please check your messages.
+                    Your password has been reset successfully. You can now login with your new password.
                 </p>
             </div>
 
@@ -237,7 +274,7 @@ export default function ForgotPasswordPage() {
                 <CardHeader className="flex flex-col gap-1 items-center pb-0 pt-6">
                     <h1 className="text-2xl font-bold">
                         {step === 'phone' && 'Forgot Password'}
-                        {step === 'otp' && 'Enter OTP'}
+                        {step === 'otp' && 'Reset Password'}
                         {step === 'success' && 'Success!'}
                     </h1>
                 </CardHeader>
