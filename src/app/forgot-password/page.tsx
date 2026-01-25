@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, CardBody, CardHeader, Link } from '@heroui/react';
 
-type Step = 'phone' | 'otp' | 'success';
+type Step = 'phone' | 'otp' | 'password' | 'success';
 
 export default function ForgotPasswordPage() {
     const router = useRouter();
@@ -16,6 +16,18 @@ export default function ForgotPasswordPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
+
+    // Resend OTP cooldown
+    const [resendCooldown, setResendCooldown] = useState(0);
+
+    // Cooldown timer effect
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (resendCooldown > 0) {
+            timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+        }
+        return () => clearTimeout(timer);
+    }, [resendCooldown]);
 
     const handleSendOtp = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -50,6 +62,7 @@ export default function ForgotPasswordPage() {
 
             setMessage(result.message || 'OTP sent successfully');
             setStep('otp');
+            setResendCooldown(60); // Start 60 second cooldown
         } catch (err) {
             setError('An unexpected error occurred');
             console.error(err);
@@ -65,6 +78,14 @@ export default function ForgotPasswordPage() {
             setError('Please enter the complete 6-digit OTP');
             return;
         }
+
+        // Move to password step (actual verification happens with password)
+        setError('');
+        setStep('password');
+    };
+
+    const handleSetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
 
         if (!newPassword) {
             setError('Please enter a new password');
@@ -94,7 +115,11 @@ export default function ForgotPasswordPage() {
             const result = await response.json();
 
             if (!response.ok) {
-                setError(result.error || 'Failed to verify OTP');
+                // If OTP was wrong, go back to OTP step
+                if (result.error?.toLowerCase().includes('otp')) {
+                    setStep('otp');
+                }
+                setError(result.error || 'Failed to reset password');
                 return;
             }
 
@@ -109,6 +134,8 @@ export default function ForgotPasswordPage() {
     };
 
     const handleResendOtp = async () => {
+        if (resendCooldown > 0) return;
+
         setOtp('');
         setError('');
         await handleSendOtp({ preventDefault: () => { } } as React.FormEvent);
@@ -158,7 +185,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4">
             <div className="text-center mb-2">
                 <p className="text-default-500 text-sm">
-                    Enter the OTP sent to{' '}
+                    Enter the 6-digit OTP sent to{' '}
                     <span className="font-semibold text-foreground">{phone}</span>
                 </p>
             </div>
@@ -175,6 +202,56 @@ export default function ForgotPasswordPage() {
                     input: 'text-center text-xl tracking-widest font-mono',
                 }}
             />
+
+            {error && (
+                <div className="text-danger text-sm p-2 bg-danger-50 rounded-lg">
+                    {error}
+                </div>
+            )}
+
+            <Button
+                type="submit"
+                isLoading={loading}
+                color="primary"
+                className="w-full"
+                isDisabled={otp.length !== 6}
+            >
+                Continue
+            </Button>
+
+            <div className="flex flex-col gap-2 text-center">
+                <Button
+                    variant="light"
+                    onPress={handleResendOtp}
+                    isDisabled={loading || resendCooldown > 0}
+                    className="text-sm"
+                >
+                    {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
+                </Button>
+                <Button
+                    variant="ghost"
+                    onPress={() => {
+                        setStep('phone');
+                        setOtp('');
+                        setError('');
+                        setResendCooldown(0);
+                    }}
+                    isDisabled={loading}
+                    className="text-sm"
+                >
+                    Change Phone Number
+                </Button>
+            </div>
+        </form>
+    );
+
+    const renderPasswordStep = () => (
+        <form onSubmit={handleSetPassword} className="flex flex-col gap-4">
+            <div className="text-center mb-2">
+                <p className="text-default-500 text-sm">
+                    Create a new password for your account
+                </p>
+            </div>
 
             <Input
                 type="password"
@@ -205,25 +282,16 @@ export default function ForgotPasswordPage() {
                 isLoading={loading}
                 color="primary"
                 className="w-full"
-                isDisabled={otp.length !== 6 || !newPassword || !confirmPassword}
+                isDisabled={!newPassword || !confirmPassword}
             >
                 Reset Password
             </Button>
 
-            <div className="flex flex-col gap-2 text-center">
-                <Button
-                    variant="light"
-                    onPress={handleResendOtp}
-                    isDisabled={loading}
-                    className="text-sm"
-                >
-                    Resend OTP
-                </Button>
+            <div className="text-center">
                 <Button
                     variant="ghost"
                     onPress={() => {
-                        setStep('phone');
-                        setOtp('');
+                        setStep('otp');
                         setNewPassword('');
                         setConfirmPassword('');
                         setError('');
@@ -231,7 +299,7 @@ export default function ForgotPasswordPage() {
                     isDisabled={loading}
                     className="text-sm"
                 >
-                    Change Phone Number
+                    Back to OTP
                 </Button>
             </div>
         </form>
@@ -274,13 +342,15 @@ export default function ForgotPasswordPage() {
                 <CardHeader className="flex flex-col gap-1 items-center pb-0 pt-6">
                     <h1 className="text-2xl font-bold">
                         {step === 'phone' && 'Forgot Password'}
-                        {step === 'otp' && 'Reset Password'}
+                        {step === 'otp' && 'Enter OTP'}
+                        {step === 'password' && 'Set New Password'}
                         {step === 'success' && 'Success!'}
                     </h1>
                 </CardHeader>
                 <CardBody className="p-6">
                     {step === 'phone' && renderPhoneStep()}
                     {step === 'otp' && renderOtpStep()}
+                    {step === 'password' && renderPasswordStep()}
                     {step === 'success' && renderSuccessStep()}
                 </CardBody>
             </Card>
