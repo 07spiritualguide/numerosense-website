@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Card, CardBody, CardHeader } from '@heroui/react';
+import { Button, Input, Card, CardBody, CardHeader, Link } from '@heroui/react';
 import { setStudentSession, setSessionToken } from '@/lib/auth';
 
 export default function StudentLoginPage() {
@@ -95,6 +95,13 @@ export default function StudentLoginPage() {
                             onChange={(e) => setPassword(e.target.value)}
                             isRequired
                         />
+
+                        <div className="flex justify-end -mt-2">
+                            <Link href="/forgot-password" className="text-sm text-primary">
+                                Forgot Password?
+                            </Link>
+                        </div>
+
                         {error && (
                             <div className="text-danger text-sm p-2 bg-danger-50 rounded-lg">
                                 {error}
