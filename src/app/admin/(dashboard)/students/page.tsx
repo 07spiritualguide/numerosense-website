@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button, Input, Card, CardBody, CardHeader, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Spinner, Checkbox, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Select, SelectItem, Switch, Tabs, Tab } from '@heroui/react';
 import { supabase } from '@/lib/supabase';
-import { generatePassword, hashPassword } from '@/lib/auth';
 
 interface Student {
     id: string;
@@ -19,7 +18,8 @@ interface Student {
 interface NewStudentCredentials {
     name: string;
     phone: string;
-    password: string;
+    inviteCode: string;
+    inviteLink: string;
     smsSent: boolean;
     smsError?: string;
 }
@@ -70,9 +70,19 @@ export default function ManageStudentsPage() {
         setLoadingStudents(false);
     };
 
-    const sendCredentialsSms = async (studentPhone: string, studentName: string, password: string) => {
+    // Generate a 12-character alphanumeric invite code
+    const generateInviteCode = (): string => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        let code = '';
+        for (let i = 0; i < 12; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+    };
+
+    const sendInviteSms = async (studentPhone: string, studentName: string, inviteLink: string) => {
         try {
-            const message = `Hi ${studentName}, Welcome to Numerosense!\n\nYour login details:\nPhone: ${studentPhone}\nPassword: ${password}\n\nLog in at: www.numerosense.com/login`;
+            const message = `Hi ${studentName}, You've been invited to Numerosense!\n\nComplete your enrollment here:\n${inviteLink}`;
 
             const response = await fetch('/api/send-sms', {
                 method: 'POST',
@@ -109,8 +119,8 @@ export default function ManageStudentsPage() {
                 return;
             }
 
-            const password = generatePassword();
-            const passwordHash = await hashPassword(password);
+            // Generate invite code instead of password
+            const inviteCode = generateInviteCode();
 
             // Calculate trial end date if free trial is enabled
             let trialEndsAt: string | null = null;
@@ -120,33 +130,51 @@ export default function ManageStudentsPage() {
                 trialEndsAt = trialEnd.toISOString();
             }
 
-            const { error: insertError } = await supabase
+            // Insert student without password (they'll set it during enrollment)
+            const { data: insertedStudent, error: insertError } = await supabase
                 .from('students')
                 .insert({
                     name,
                     phone,
-                    password_hash: passwordHash,
+                    password_hash: null,
                     is_active: true,
                     trial_ends_at: trialEndsAt,
-                });
+                })
+                .select('id')
+                .single();
 
-            if (insertError) {
-                setError(insertError.message);
+            if (insertError || !insertedStudent) {
+                setError(insertError?.message || 'Failed to create student');
                 setLoading(false);
                 return;
             }
+
+            // Create invite code in database
+            const { error: inviteError } = await supabase
+                .from('invite_codes')
+                .insert({
+                    student_id: insertedStudent.id,
+                    code: inviteCode,
+                });
+
+            if (inviteError) {
+                console.error('Failed to create invite code:', inviteError);
+                // Don't fail - student is created, admin can manually share link
+            }
+
+            const inviteLink = `https://www.numerosense.in/enroll?code=${inviteCode}`;
 
             // Send SMS if checkbox is checked
             let smsSent = false;
             let smsError: string | undefined;
 
             if (sendSms) {
-                const smsResult = await sendCredentialsSms(phone, name, password);
+                const smsResult = await sendInviteSms(phone, name, inviteLink);
                 smsSent = smsResult.success;
                 smsError = smsResult.error;
             }
 
-            setNewCredentials({ name, phone, password, smsSent, smsError });
+            setNewCredentials({ name, phone, inviteCode, inviteLink, smsSent, smsError });
             setName('');
             setPhone('');
             setIsFreeTrial(false);
@@ -276,7 +304,7 @@ export default function ManageStudentsPage() {
                                             isSelected={sendSms}
                                             onValueChange={setSendSms}
                                         >
-                                            Send credentials via SMS (₹5)
+                                            Send invite link via SMS (₹5)
                                         </Checkbox>
                                         <div className="flex items-center justify-between p-3 bg-warning-50 rounded-lg">
                                             <div>
@@ -300,7 +328,7 @@ export default function ManageStudentsPage() {
                                             color="primary"
                                             className="w-full"
                                         >
-                                            Add Student & Generate Password
+                                            Add Student & Send Invite
                                         </Button>
                                     </form>
                                 </CardBody>
@@ -317,7 +345,7 @@ export default function ManageStudentsPage() {
                                         {sendSms && (
                                             <div className={`mb-4 p-3 rounded-lg ${newCredentials.smsSent ? 'bg-success-50' : 'bg-danger-50'}`}>
                                                 {newCredentials.smsSent ? (
-                                                    <p className="text-success text-sm">✅ Credentials sent via SMS!</p>
+                                                    <p className="text-success text-sm">✅ Invite link sent via SMS!</p>
                                                 ) : (
                                                     <p className="text-danger text-sm">❌ SMS failed: {newCredentials.smsError}</p>
                                                 )}
@@ -326,8 +354,8 @@ export default function ManageStudentsPage() {
 
                                         <p className="text-default-500 mb-4">
                                             {newCredentials.smsSent
-                                                ? 'Credentials have been sent to the student:'
-                                                : 'Share these credentials with the student:'}
+                                                ? 'The invite link has been sent to the student:'
+                                                : 'Share this invite link with the student:'}
                                         </p>
 
                                         <div className="space-y-4">
@@ -351,14 +379,14 @@ export default function ManageStudentsPage() {
                                             </div>
 
                                             <div className="bg-default-100 rounded-lg p-4">
-                                                <p className="text-xs text-default-500 uppercase mb-1">Password</p>
-                                                <div className="flex items-center justify-between">
-                                                    <p className="font-mono text-xl font-bold text-success">{newCredentials.password}</p>
+                                                <p className="text-xs text-default-500 uppercase mb-1">Invite Link</p>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="font-mono text-sm text-primary break-all">{newCredentials.inviteLink}</p>
                                                     <Button
                                                         size="sm"
                                                         variant="flat"
-                                                        color="success"
-                                                        onPress={() => copyToClipboard(newCredentials.password)}
+                                                        color="primary"
+                                                        onPress={() => copyToClipboard(newCredentials.inviteLink)}
                                                     >
                                                         Copy
                                                     </Button>
@@ -366,9 +394,9 @@ export default function ManageStudentsPage() {
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 p-3 bg-warning-50 rounded-lg">
-                                            <p className="text-warning text-sm">
-                                                ⚠️ Save these credentials! The password cannot be retrieved later.
+                                        <div className="mt-4 p-3 bg-primary-50 rounded-lg">
+                                            <p className="text-primary text-sm">
+                                                ℹ️ The student will create their own password when they visit the invite link.
                                             </p>
                                         </div>
 
