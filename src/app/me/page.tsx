@@ -22,7 +22,6 @@ import {
 import LoShuGridComponent from '@/components/grids/LoShuGrid';
 import GridLegend from '@/components/grids/GridLegend';
 import StudentNavbar from '@/components/StudentNavbar';
-import Compass from '@/components/Compass';
 import { extractFirstLastName, calculateNameNumber, getNameBreakdown } from '@/lib/name-numerology';
 import { getQuoteForCurrentTime } from '@/lib/quotes';
 import jsPDF from 'jspdf';
@@ -951,15 +950,9 @@ export default function MePage() {
                                         </div>
                                         <div className="col-span-2">
                                             <p className="text-sm text-default-500 mb-3">Lucky Direction</p>
-                                            <Compass
-                                                luckyDirection={basicInfo?.lucky_direction ?? null}
-                                                accentColor={DESTINY_THEME[basicInfo?.destiny_number || 1]?.accent || '#D4A017'}
-                                                cardBg={DESTINY_THEME[basicInfo?.destiny_number || 1]?.card || '#FFFEF5'}
-                                                gridBg={DESTINY_THEME[basicInfo?.destiny_number || 1]?.gridBg || '#FFFADB'}
-                                                textPrimary="#1a1a1a"
-                                                textMuted="#5a5a5a"
-                                                gridBorder={DESTINY_THEME[basicInfo?.destiny_number || 1]?.gridBorder || '#FFF4B8'}
-                                            />
+                                            <p className="text-lg font-medium">
+                                                {basicInfo?.lucky_direction ?? <span className="text-default-400">Coming soon</span>}
+                                            </p>
                                         </div>
                                     </div>
 
