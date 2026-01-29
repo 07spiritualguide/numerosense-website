@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, CardBody, CardHeader, Select, SelectItem, Spinner } from '@heroui/react';
 import { supabase } from '@/lib/supabase';
-import { getStudentSession, setStudentSession } from '@/lib/auth';
+import { getStudentSession, setStudentSession, getSessionToken } from '@/lib/auth';
 import { calculateNumerology } from '@/lib/numerology';
 import { getNumerologyDataForDestiny } from '@/lib/numerologyData';
 import { extractFirstLastName, calculateNameNumber } from '@/lib/name-numerology';
@@ -96,10 +96,21 @@ export default function DetailsPage() {
                 name_number: nameNumber,
             };
 
+            // Get session token for authenticated API calls
+            const token = getSessionToken();
+            if (!token) {
+                setError('Session expired. Please log in again.');
+                router.push('/login');
+                return;
+            }
+
             // Update student profile via API
             const profileResponse = await fetch('/api/data', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
                 body: JSON.stringify({
                     studentId: session.id,
                     action: 'update-student-profile',
@@ -122,7 +133,10 @@ export default function DetailsPage() {
             // Upsert basic_info via API
             const basicInfoResponse = await fetch('/api/data', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
                 body: JSON.stringify({
                     studentId: session.id,
                     action: 'upsert-basic-info',
